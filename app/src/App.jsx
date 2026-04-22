@@ -53,6 +53,10 @@ export default function App() {
             <Search size={18} strokeWidth={1.75} />
           </button>
           <button
+            onClick={() => {
+              if (active !== 'board') setActive('board');
+              window.dispatchEvent(new CustomEvent('workspace:new-task'));
+            }}
             className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
             style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
           >
