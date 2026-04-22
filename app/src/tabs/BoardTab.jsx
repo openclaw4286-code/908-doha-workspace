@@ -60,8 +60,7 @@ export default function BoardTab() {
   return (
     <div className="h-full">
       <div className="mx-auto max-w-[1400px] px-5 py-6">
-        <div className="mb-5 flex items-baseline justify-between">
-          <h2 className="t-title3">Board</h2>
+        <div className="mb-4 flex items-center justify-end">
           <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
             총 {tasks.length}개
           </span>

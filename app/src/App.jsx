@@ -14,28 +14,36 @@ const TABS = [
 
 export default function App() {
   const [active, setActive] = useState('board');
-  const Current = TABS.find((t) => t.id === active).Component;
+  const current = TABS.find((t) => t.id === active);
+  const Current = current.Component;
 
   return (
-    <div className="flex h-full flex-col">
-      <header
-        className="flex h-14 items-center gap-5 border-b px-5"
-        style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface)' }}
+    <div className="flex h-full">
+      <aside
+        className="flex w-56 shrink-0 flex-col border-r"
+        style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-layered)' }}
       >
-        <div className="t-heading1" style={{ letterSpacing: '-0.01em' }}>
-          908doha <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>Workspace</span>
+        <div
+          className="flex h-14 items-center px-5 t-heading1"
+          style={{ letterSpacing: '-0.01em' }}
+        >
+          908doha{' '}
+          <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, marginLeft: 6 }}>
+            Workspace
+          </span>
         </div>
-        <nav className="ml-4 flex gap-1">
+        <nav className="flex flex-col gap-0.5 px-3 py-2">
           {TABS.map(({ id, label, icon: Icon }) => {
             const on = active === id;
             return (
               <button
                 key={id}
                 onClick={() => setActive(id)}
-                className="flex items-center gap-2 rounded-md px-3 py-1.5 t-label transition-colors"
+                className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
                 style={{
                   background: on ? 'var(--accent-brand-soft)' : 'transparent',
                   color: on ? 'var(--text-brand)' : 'var(--text-secondary)',
+                  transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
                 }}
               >
                 <Icon size={16} strokeWidth={1.75} />
@@ -44,30 +52,39 @@ export default function App() {
             );
           })}
         </nav>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-md"
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Search"
-          >
-            <Search size={18} strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={() => {
-              if (active !== 'board') setActive('board');
-              window.dispatchEvent(new CustomEvent('workspace:new-task'));
-            }}
-            className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-            style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
-          >
-            <Plus size={16} strokeWidth={2} />
-            New
-          </button>
-        </div>
-      </header>
-      <main className="flex-1 overflow-auto">
-        <Current />
-      </main>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header
+          className="flex h-14 items-center gap-3 border-b px-5"
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface)' }}
+        >
+          <div className="t-heading1">{current.label}</div>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-md"
+              style={{ color: 'var(--text-secondary)' }}
+              aria-label="Search"
+            >
+              <Search size={18} strokeWidth={1.75} />
+            </button>
+            <button
+              onClick={() => {
+                if (active !== 'board') setActive('board');
+                window.dispatchEvent(new CustomEvent('workspace:new-task'));
+              }}
+              className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
+              style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
+            >
+              <Plus size={16} strokeWidth={2} />
+              New
+            </button>
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto">
+          <Current />
+        </main>
+      </div>
     </div>
   );
 }
