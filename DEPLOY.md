@@ -1,6 +1,13 @@
 # Vercel 배포 가이드
 
-이 프로젝트는 정적 HTML 파일만 있어서 빌드 스텝이 필요 없습니다.
+이 저장소는 두 개를 한 Vercel 프로젝트로 배포합니다:
+
+- **`/`** — 908doha Workspace 앱 (React/Vite, `app/` 에서 빌드)
+- **`/ds/`** — 908 Doha Design System 정적 사이트 (참고용)
+
+빌드는 루트의 `build.sh` 하나가 담당합니다. Vercel은 `vercel.json`의
+`buildCommand: ./build.sh` · `outputDirectory: app/dist` 로 호출합니다.
+로컬에서 동일하게 재현하려면 `./build.sh` 만 실행하세요.
 
 ## 1) 프로젝트 다운로드 & 압축 해제
 받은 ZIP을 원하는 위치에 풀어주세요.
