@@ -23,6 +23,6 @@ Read the `README.md` file within this skill, and explore the other available fil
 ## House rules
 - Sentence case for all UI copy. No emoji.
 - One primary action per screen. Fixed bottom CTA beats inline for forms.
-- Warm sand grey, not cool. Oasis Teal `#137A65` is used sparingly.
+- Warm sand grey, not cool. Teal `#0A6E6E` (teal-500) is used sparingly, reserved for `state-info` and data accents.
 - Lucide icons at 1.5 stroke. No hand-drawn SVG icons unless the brand has a custom one.
-- Dark mode shifts backgrounds toward deep green-black (`#0E1513`), not pure black.
+- Dark mode shifts backgrounds toward a warm near-black (`#0A0A09`), not pure black.
