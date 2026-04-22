@@ -1,6 +1,8 @@
-// Task CRUD over the storage abstraction. Schema per spec 5.1.
+// Task CRUD backed by Supabase. Schema per spec 5.1; DB uses
+// snake_case (due_date, linked_notes, created_at) and we map to the
+// camelCase shape the UI uses.
 
-import { read, write, DOMAINS } from './storage.js';
+import { supabase } from './supabase.js';
 import { uid } from './id.js';
 
 export const STATUSES = ['todo', 'doing', 'review', 'done'];
@@ -35,11 +37,66 @@ export function emptyTask(overrides = {}) {
   };
 }
 
-export async function loadTasks() {
-  const list = await read(DOMAINS.tasks, []);
-  return Array.isArray(list) ? list : [];
+function rowToTask(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description ?? '',
+    status: r.status,
+    priority: r.priority,
+    assignee: r.assignee ?? null,
+    dueDate: r.due_date ?? '',
+    attachments: r.attachments ?? [],
+    linkedNotes: r.linked_notes ?? [],
+    createdAt: new Date(r.created_at).getTime(),
+  };
 }
 
-export async function saveTasks(tasks) {
-  await write(DOMAINS.tasks, tasks);
+function taskToRow(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description ?? '',
+    status: t.status,
+    priority: t.priority,
+    assignee: t.assignee ?? null,
+    due_date: t.dueDate ? t.dueDate : null,
+    attachments: t.attachments ?? [],
+    linked_notes: t.linkedNotes ?? [],
+  };
+}
+
+export async function listTasks() {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToTask);
+}
+
+export async function upsertTask(task) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .upsert(taskToRow(task))
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTask(data);
+}
+
+export async function removeTask(id) {
+  const { error } = await supabase.from('tasks').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateTaskStatus(id, status) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({ status })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTask(data);
 }

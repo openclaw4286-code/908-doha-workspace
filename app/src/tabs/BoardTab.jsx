@@ -5,8 +5,10 @@ import {
   STATUSES,
   STATUS_LABELS,
   emptyTask,
-  loadTasks,
-  saveTasks,
+  listTasks,
+  upsertTask,
+  removeTask,
+  updateTaskStatus,
 } from '../lib/tasks.js';
 
 export default function BoardTab() {
@@ -14,17 +16,30 @@ export default function BoardTab() {
   const [editing, setEditing] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(null);
+
+  const refresh = async () => {
+    try {
+      const list = await listTasks();
+      setTasks(list);
+      setError(null);
+    } catch (e) {
+      setError(e.message ?? String(e));
+      console.error('[tasks] list failed', e);
+    } finally {
+      setLoaded(true);
+    }
+  };
 
   useEffect(() => {
-    loadTasks().then((list) => {
-      setTasks(list);
-      setLoaded(true);
-    });
+    refresh();
   }, []);
 
   useEffect(() => {
-    if (loaded) saveTasks(tasks);
-  }, [tasks, loaded]);
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   useEffect(() => {
     const open = () => setEditing(emptyTask());
@@ -38,21 +53,46 @@ export default function BoardTab() {
     return by;
   }, [tasks]);
 
-  const upsert = (task) => {
-    setTasks((prev) => {
-      const idx = prev.findIndex((t) => t.id === task.id);
-      return idx === -1 ? [task, ...prev] : prev.map((t) => (t.id === task.id ? task : t));
-    });
+  const upsert = async (task) => {
+    const idx = tasks.findIndex((t) => t.id === task.id);
+    const prev = tasks;
+    setTasks(idx === -1 ? [task, ...tasks] : tasks.map((t) => (t.id === task.id ? task : t)));
     setEditing(null);
+    try {
+      const saved = await upsertTask(task);
+      setTasks((list) => list.map((t) => (t.id === saved.id ? saved : t)));
+    } catch (e) {
+      setTasks(prev);
+      setError(`저장 실패: ${e.message ?? e}`);
+      console.error('[tasks] upsert failed', e);
+    }
   };
 
-  const remove = (task) => {
-    setTasks((prev) => prev.filter((t) => t.id !== task.id));
+  const remove = async (task) => {
+    const prev = tasks;
+    setTasks(tasks.filter((t) => t.id !== task.id));
     setEditing(null);
+    try {
+      await removeTask(task.id);
+    } catch (e) {
+      setTasks(prev);
+      setError(`삭제 실패: ${e.message ?? e}`);
+      console.error('[tasks] remove failed', e);
+    }
   };
 
-  const moveToStatus = (id, status) => {
-    setTasks((prev) => prev.map((t) => (t.id === id && t.status !== status ? { ...t, status } : t)));
+  const moveToStatus = async (id, status) => {
+    const prev = tasks;
+    const target = tasks.find((t) => t.id === id);
+    if (!target || target.status === status) return;
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, status } : t)));
+    try {
+      await updateTaskStatus(id, status);
+    } catch (e) {
+      setTasks(prev);
+      setError(`상태 변경 실패: ${e.message ?? e}`);
+      console.error('[tasks] move failed', e);
+    }
   };
 
   const empty = tasks.length === 0;
@@ -60,7 +100,17 @@ export default function BoardTab() {
   return (
     <div className="h-full">
       <div className="mx-auto max-w-[1400px] px-5 py-6">
-        <div className="mb-4 flex items-center justify-end">
+        <div className="mb-4 flex items-center justify-between">
+          {error ? (
+            <span
+              className="t-caption rounded-md px-2 py-1"
+              style={{ background: 'var(--state-negative-soft)', color: 'var(--state-negative)' }}
+            >
+              {error}
+            </span>
+          ) : (
+            <span />
+          )}
           <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
             총 {tasks.length}개
           </span>
@@ -83,7 +133,7 @@ export default function BoardTab() {
           ))}
         </div>
 
-        {empty && loaded && (
+        {empty && loaded && !error && (
           <div
             className="mx-auto mt-8 max-w-md rounded-xl border border-dashed p-8 text-center"
             style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
