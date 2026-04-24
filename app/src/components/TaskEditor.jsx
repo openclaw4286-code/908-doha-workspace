@@ -92,7 +92,8 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             value={draft.description}
             onChange={(e) => set({ description: e.target.value.slice(0, DESC_MAX) })}
             placeholder="상세 설명 · 선택"
-            rows={4}
+            rows={8}
+            style={{ minHeight: 200 }}
           />
         </FormField>
 
