@@ -19,6 +19,7 @@ export function emptyNote(overrides = {}) {
     blocks: [emptyBlock('text')],
     tags: [],
     pinned: false,
+    folderId: null,
     createdAt: Date.now(),
     ...overrides,
   };
@@ -31,6 +32,7 @@ function rowToNote(r) {
     blocks: Array.isArray(r.blocks) ? r.blocks : [],
     tags: Array.isArray(r.tags) ? r.tags : [],
     pinned: !!r.pinned,
+    folderId: r.folder_id ?? null,
     createdBy: r.created_by ?? null,
     updatedBy: r.updated_by ?? null,
     createdAt: new Date(r.created_at).getTime(),
@@ -47,6 +49,7 @@ function noteToRow(n) {
     ),
     tags: n.tags ?? [],
     pinned: !!n.pinned,
+    folder_id: n.folderId ?? null,
     created_by: n.createdBy ?? null,
     updated_by: n.updatedBy ?? null,
   };
