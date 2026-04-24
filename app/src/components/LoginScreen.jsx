@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import MemberAvatar from './MemberAvatar.jsx';
-import AuthField from './AuthField.jsx';
-import AuthInput from './AuthInput.jsx';
+import FormField from './FormField.jsx';
+import FormInput from './FormInput.jsx';
 
 export default function LoginScreen() {
   const { members, login } = useAuth();
@@ -66,8 +66,8 @@ export default function LoginScreen() {
               </span>
             </div>
 
-            <AuthField label="비밀번호">
-              <AuthInput
+            <FormField label="비밀번호">
+              <FormInput
                 type="password"
                 name="current-password"
                 autoComplete="current-password"
@@ -76,7 +76,7 @@ export default function LoginScreen() {
                 autoFocus
                 disabled={busy}
               />
-            </AuthField>
+            </FormField>
 
             {error && (
               <div

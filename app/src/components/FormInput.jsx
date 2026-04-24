@@ -1,6 +1,6 @@
 import { forwardRef, useState } from 'react';
 
-const AuthInput = forwardRef(function AuthInput({ style, onFocus, onBlur, ...rest }, ref) {
+const FormInput = forwardRef(function FormInput({ style, onFocus, onBlur, ...rest }, ref) {
   const [focused, setFocused] = useState(false);
   return (
     <input
@@ -32,4 +32,4 @@ const AuthInput = forwardRef(function AuthInput({ style, onFocus, onBlur, ...res
   );
 });
 
-export default AuthInput;
+export default FormInput;

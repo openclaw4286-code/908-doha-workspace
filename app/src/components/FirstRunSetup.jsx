@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { createMember, MEMBER_COLORS } from '../lib/members.js';
-import AuthField from './AuthField.jsx';
-import AuthInput from './AuthInput.jsx';
+import FormField from './FormField.jsx';
+import FormInput from './FormInput.jsx';
 import ColorPicker from './ColorPicker.jsx';
 
 export default function FirstRunSetup() {
@@ -56,8 +56,8 @@ export default function FirstRunSetup() {
         </header>
 
         <form onSubmit={submit} className="flex flex-col gap-5" autoComplete="on">
-          <AuthField label="이름" hint={`${name.length}/20`}>
-            <AuthInput
+          <FormField label="이름" hint={`${name.length}/20`}>
+            <FormInput
               name="nickname"
               autoComplete="nickname"
               value={name}
@@ -65,35 +65,35 @@ export default function FirstRunSetup() {
               placeholder="예: 대건"
               autoFocus
             />
-          </AuthField>
+          </FormField>
 
-          <AuthField label="색">
+          <FormField label="색">
             <ColorPicker value={color} onChange={setColor} />
-          </AuthField>
+          </FormField>
 
-          <AuthField label="비밀번호" hint="최소 4자">
-            <AuthInput
+          <FormField label="비밀번호" hint="최소 4자">
+            <FormInput
               type="password"
               name="new-password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-          </AuthField>
+          </FormField>
 
-          <AuthField
+          <FormField
             label="비밀번호 확인"
             hint={confirm && password !== confirm ? '일치하지 않음' : undefined}
             tone={confirm && password !== confirm ? 'negative' : undefined}
           >
-            <AuthInput
+            <FormInput
               type="password"
               name="confirm-password"
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
-          </AuthField>
+          </FormField>
 
           {error && (
             <div

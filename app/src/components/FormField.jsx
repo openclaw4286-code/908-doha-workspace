@@ -1,4 +1,4 @@
-export default function AuthField({ label, hint, tone, children }) {
+export default function FormField({ label, hint, tone, children }) {
   const hintColor =
     tone === 'negative' ? 'var(--state-negative)' : 'var(--text-tertiary)';
   return (

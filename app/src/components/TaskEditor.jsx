@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import Modal from './Modal.jsx';
 import MemberAvatar from './MemberAvatar.jsx';
+import FormField from './FormField.jsx';
+import FormInput from './FormInput.jsx';
+import FormTextarea from './FormTextarea.jsx';
+import FormSelect from './FormSelect.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUSES, PRIORITIES, STATUS_LABELS, PRIORITY_LABELS } from '../lib/tasks.js';
 
 const TITLE_MAX = 100;
 const DESC_MAX = 1000;
+
+const STATUS_OPTIONS = STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }));
+const PRIORITY_OPTIONS = PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }));
 
 export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
   const [draft, setDraft] = useState(task);
@@ -61,6 +68,7 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             style={{
               background: canSave ? 'var(--accent-brand)' : 'var(--surface-sunken)',
               color: canSave ? 'var(--text-inverted)' : 'var(--text-tertiary)',
+              transition: 'background 160ms var(--ease-soft)',
             }}
           >
             저장
@@ -68,65 +76,57 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
         </>
       }
     >
-      <div className="flex flex-col gap-4">
-        <Field label="제목" hint={`${draft.title.length}/${TITLE_MAX}`}>
-          <input
+      <div className="flex flex-col gap-5">
+        <FormField label="제목" hint={`${draft.title.length}/${TITLE_MAX}`}>
+          <FormInput
             value={draft.title}
             onChange={(e) => set({ title: e.target.value.slice(0, TITLE_MAX) })}
             placeholder="무엇을 처리하나요?"
             autoFocus
-            className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-            style={inputStyle}
           />
-        </Field>
+        </FormField>
 
-        <Field label="설명" hint={`${draft.description.length}/${DESC_MAX}`}>
-          <textarea
+        <FormField label="설명" hint={`${draft.description.length}/${DESC_MAX}`}>
+          <FormTextarea
             value={draft.description}
             onChange={(e) => set({ description: e.target.value.slice(0, DESC_MAX) })}
             placeholder="상세 설명 · 선택"
             rows={4}
-            className="w-full resize-y rounded-md border px-3.5 py-2.5 t-body2 outline-none"
-            style={inputStyle}
           />
-        </Field>
+        </FormField>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="상태">
-            <Select
+          <FormField label="상태">
+            <FormSelect
               value={draft.status}
-              onChange={(v) => set({ status: v })}
-              options={STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+              onChange={(e) => set({ status: e.target.value })}
+              options={STATUS_OPTIONS}
             />
-          </Field>
-          <Field label="우선순위">
-            <Select
+          </FormField>
+          <FormField label="우선순위">
+            <FormSelect
               value={draft.priority}
-              onChange={(v) => set({ priority: v })}
-              options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+              onChange={(e) => set({ priority: e.target.value })}
+              options={PRIORITY_OPTIONS}
             />
-          </Field>
+          </FormField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="담당자">
-            <input
+          <FormField label="담당자">
+            <FormInput
               value={draft.assignee ?? ''}
               onChange={(e) => set({ assignee: e.target.value || null })}
               placeholder="이름"
-              className="h-11 w-full rounded-md border px-3.5 t-body2 outline-none"
-              style={inputStyle}
             />
-          </Field>
-          <Field label="마감일">
-            <input
+          </FormField>
+          <FormField label="마감일">
+            <FormInput
               type="date"
               value={draft.dueDate}
               onChange={(e) => set({ dueDate: e.target.value })}
-              className="h-11 w-full rounded-md border px-3.5 t-body2 outline-none"
-              style={inputStyle}
             />
-          </Field>
+          </FormField>
         </div>
 
         {!isNew && (creator || editor) && (
@@ -148,46 +148,5 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
         )}
       </div>
     </Modal>
-  );
-}
-
-const inputStyle = {
-  borderColor: 'var(--border-default)',
-  background: 'var(--surface)',
-  color: 'var(--text-primary)',
-};
-
-function Field({ label, hint, children }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between">
-        <span className="t-label" style={{ color: 'var(--text-secondary)' }}>
-          {label}
-        </span>
-        {hint && (
-          <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
-            {hint}
-          </span>
-        )}
-      </div>
-      {children}
-    </label>
-  );
-}
-
-function Select({ value, onChange, options }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-11 w-full rounded-md border px-3 t-body2 outline-none"
-      style={inputStyle}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
   );
 }

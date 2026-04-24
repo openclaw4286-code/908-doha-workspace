@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import Modal from './Modal.jsx';
-import AuthField from './AuthField.jsx';
-import AuthInput from './AuthInput.jsx';
+import FormField from './FormField.jsx';
+import FormInput from './FormInput.jsx';
 import ColorPicker from './ColorPicker.jsx';
 import { MEMBER_COLORS } from '../lib/members.js';
 
@@ -76,47 +76,47 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
       }
     >
       <div className="flex flex-col gap-5">
-        <AuthField label="이름" hint={`${name.length}/20`}>
-          <AuthInput
+        <FormField label="이름" hint={`${name.length}/20`}>
+          <FormInput
             name="member-name"
             autoComplete="off"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 20))}
             autoFocus
           />
-        </AuthField>
+        </FormField>
 
-        <AuthField label="색">
+        <FormField label="색">
           <ColorPicker value={color} onChange={setColor} />
-        </AuthField>
+        </FormField>
 
-        <AuthField
+        <FormField
           label={isNew ? '비밀번호' : '새 비밀번호'}
           hint={isNew ? '최소 4자' : '변경 시에만 입력'}
         >
-          <AuthInput
+          <FormInput
             type="password"
             name="new-password"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </AuthField>
+        </FormField>
 
         {password && (
-          <AuthField
+          <FormField
             label="비밀번호 확인"
             hint={confirm && password !== confirm ? '일치하지 않음' : undefined}
             tone={confirm && password !== confirm ? 'negative' : undefined}
           >
-            <AuthInput
+            <FormInput
               type="password"
               name="confirm-password"
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
-          </AuthField>
+          </FormField>
         )}
 
         {isSelf && !isNew && (
