@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import Modal from './Modal.jsx';
+import AuthField from './AuthField.jsx';
+import AuthInput from './AuthInput.jsx';
+import ColorPicker from './ColorPicker.jsx';
 import { MEMBER_COLORS } from '../lib/members.js';
 
 export default function MemberEditor({ open, member, onSave, onDelete, onClose, isSelf }) {
@@ -72,66 +75,48 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
         </>
       }
     >
-      <div className="flex flex-col gap-4">
-        <Field label="이름" hint={`${name.length}/20`}>
-          <input
+      <div className="flex flex-col gap-5">
+        <AuthField label="이름" hint={`${name.length}/20`}>
+          <AuthInput
+            name="member-name"
+            autoComplete="off"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 20))}
             autoFocus
-            className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-            style={inputStyle}
           />
-        </Field>
+        </AuthField>
 
-        <Field label="색">
-          <div className="flex flex-wrap gap-2">
-            {MEMBER_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className="h-8 w-8 rounded-full"
-                style={{
-                  background: c,
-                  boxShadow:
-                    color === c
-                      ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent-brand)'
-                      : 'none',
-                }}
-                aria-label={c}
-              />
-            ))}
-          </div>
-        </Field>
+        <AuthField label="색">
+          <ColorPicker value={color} onChange={setColor} />
+        </AuthField>
 
-        <Field
+        <AuthField
           label={isNew ? '비밀번호' : '새 비밀번호'}
           hint={isNew ? '최소 4자' : '변경 시에만 입력'}
         >
-          <input
+          <AuthInput
             type="password"
+            name="new-password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-            style={inputStyle}
           />
-        </Field>
+        </AuthField>
 
         {password && (
-          <Field label="비밀번호 확인">
-            <input
+          <AuthField
+            label="비밀번호 확인"
+            hint={confirm && password !== confirm ? '일치하지 않음' : undefined}
+            tone={confirm && password !== confirm ? 'negative' : undefined}
+          >
+            <AuthInput
               type="password"
+              name="confirm-password"
+              autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-              style={inputStyle}
             />
-            {confirm && password !== confirm && (
-              <span className="t-caption" style={{ color: 'var(--state-negative)' }}>
-                비밀번호가 일치하지 않습니다.
-              </span>
-            )}
-          </Field>
+          </AuthField>
         )}
 
         {isSelf && !isNew && (
@@ -144,29 +129,5 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
         )}
       </div>
     </Modal>
-  );
-}
-
-const inputStyle = {
-  borderColor: 'var(--border-default)',
-  background: 'var(--surface)',
-  color: 'var(--text-primary)',
-};
-
-function Field({ label, hint, children }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between">
-        <span className="t-label" style={{ color: 'var(--text-secondary)' }}>
-          {label}
-        </span>
-        {hint && (
-          <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
-            {hint}
-          </span>
-        )}
-      </div>
-      {children}
-    </label>
   );
 }

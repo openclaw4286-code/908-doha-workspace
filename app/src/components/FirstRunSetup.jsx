@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { createMember, MEMBER_COLORS } from '../lib/members.js';
+import AuthField from './AuthField.jsx';
+import AuthInput from './AuthInput.jsx';
+import ColorPicker from './ColorPicker.jsx';
 
 export default function FirstRunSetup() {
   const { refreshMembers, login } = useAuth();
@@ -36,77 +38,62 @@ export default function FirstRunSetup() {
 
   return (
     <div
-      className="flex min-h-full items-center justify-center px-5 py-16"
+      className="flex min-h-full items-center justify-center px-5 py-10"
       style={{ background: 'var(--background)' }}
     >
-      <div className="w-full max-w-sm">
-        <div className="mb-7 text-center">
-          <div
-            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full"
-            style={{ background: 'var(--accent-brand-soft)', color: 'var(--accent-brand)' }}
-          >
-            <UserPlus size={22} strokeWidth={1.75} />
+      <div
+        className="w-full max-w-md rounded-2xl p-8"
+        style={{ background: 'var(--surface)', boxShadow: 'var(--elev-2)' }}
+      >
+        <header className="mb-7">
+          <div className="t-caption" style={{ color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            908doha Workspace
           </div>
-          <div className="t-title3">첫 멤버 만들기</div>
-          <p className="t-body2 mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-            워크스페이스에 첫 멤버를 등록하고 들어갑니다.
+          <h1 className="t-title2 mt-1">첫 멤버 만들기</h1>
+          <p className="t-body2 mt-2" style={{ color: 'var(--text-secondary)' }}>
+            본인 프로필을 먼저 등록하고 들어갑니다.
           </p>
-        </div>
+        </header>
 
-        <form onSubmit={submit} className="flex flex-col gap-4">
-          <Field label="이름">
-            <input
+        <form onSubmit={submit} className="flex flex-col gap-5" autoComplete="on">
+          <AuthField label="이름" hint={`${name.length}/20`}>
+            <AuthInput
+              name="nickname"
+              autoComplete="nickname"
               value={name}
               onChange={(e) => setName(e.target.value.slice(0, 20))}
               placeholder="예: 대건"
               autoFocus
-              className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-              style={inputStyle}
             />
-          </Field>
+          </AuthField>
 
-          <Field label="색">
-            <div className="flex flex-wrap gap-2">
-              {MEMBER_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className="h-8 w-8 rounded-full"
-                  style={{
-                    background: c,
-                    boxShadow: color === c ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent-brand)' : 'none',
-                  }}
-                  aria-label={c}
-                />
-              ))}
-            </div>
-          </Field>
+          <AuthField label="색">
+            <ColorPicker value={color} onChange={setColor} />
+          </AuthField>
 
-          <Field label="비밀번호" hint="최소 4자">
-            <input
+          <AuthField label="비밀번호" hint="최소 4자">
+            <AuthInput
               type="password"
+              name="new-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-              style={inputStyle}
             />
-          </Field>
+          </AuthField>
 
-          <Field label="비밀번호 확인">
-            <input
+          <AuthField
+            label="비밀번호 확인"
+            hint={confirm && password !== confirm ? '일치하지 않음' : undefined}
+            tone={confirm && password !== confirm ? 'negative' : undefined}
+          >
+            <AuthInput
               type="password"
+              name="confirm-password"
+              autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="h-11 w-full rounded-md border px-3.5 t-body1 outline-none"
-              style={inputStyle}
             />
-            {confirm && password !== confirm && (
-              <span className="t-caption" style={{ color: 'var(--state-negative)' }}>
-                비밀번호가 일치하지 않습니다.
-              </span>
-            )}
-          </Field>
+          </AuthField>
 
           {error && (
             <div
@@ -120,10 +107,13 @@ export default function FirstRunSetup() {
           <button
             type="submit"
             disabled={!canSubmit || busy}
-            className="flex h-11 items-center justify-center rounded-md t-label"
+            className="flex items-center justify-center rounded-md t-label"
             style={{
+              height: 44,
+              marginTop: 4,
               background: !canSubmit || busy ? 'var(--surface-sunken)' : 'var(--accent-brand)',
               color: !canSubmit || busy ? 'var(--text-tertiary)' : 'var(--text-inverted)',
+              transition: 'background 160ms var(--ease-soft)',
             }}
           >
             {busy ? '만드는 중…' : '시작하기'}
@@ -131,29 +121,5 @@ export default function FirstRunSetup() {
         </form>
       </div>
     </div>
-  );
-}
-
-const inputStyle = {
-  borderColor: 'var(--border-default)',
-  background: 'var(--surface)',
-  color: 'var(--text-primary)',
-};
-
-function Field({ label, hint, children }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between">
-        <span className="t-label" style={{ color: 'var(--text-secondary)' }}>
-          {label}
-        </span>
-        {hint && (
-          <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
-            {hint}
-          </span>
-        )}
-      </div>
-      {children}
-    </label>
   );
 }
