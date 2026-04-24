@@ -6,6 +6,7 @@ import FilesTab from './tabs/FilesTab.jsx';
 import VaultTab from './tabs/VaultTab.jsx';
 import SettingsTab from './tabs/SettingsTab.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
+import { ToastProvider } from './contexts/ToastContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import FirstRunSetup from './components/FirstRunSetup.jsx';
 import MemberAvatar from './components/MemberAvatar.jsx';
@@ -19,9 +20,11 @@ const TABS = [
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+    </ToastProvider>
   );
 }
 
