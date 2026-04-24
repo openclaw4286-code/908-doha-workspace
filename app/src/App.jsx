@@ -162,17 +162,20 @@ function Shell() {
               >
                 <Search size={18} strokeWidth={1.75} />
               </button>
-              <button
-                onClick={() => {
-                  if (active !== 'board') setActive('board');
-                  window.dispatchEvent(new CustomEvent('workspace:new-task'));
-                }}
-                className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-                style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
-              >
-                <Plus size={16} strokeWidth={2} />
-                New
-              </button>
+              {(active === 'board' || active === 'notes') && (
+                <button
+                  onClick={() => {
+                    const evt =
+                      active === 'notes' ? 'workspace:new-note' : 'workspace:new-task';
+                    window.dispatchEvent(new CustomEvent(evt));
+                  }}
+                  className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
+                  style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
+                >
+                  <Plus size={16} strokeWidth={2} />
+                  New
+                </button>
+              )}
             </div>
           )}
         </header>
