@@ -1,5 +1,7 @@
 import { Calendar, User } from 'lucide-react';
 import { PRIORITY_LABELS } from '../lib/tasks.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import MemberAvatar from './MemberAvatar.jsx';
 
 const PRIORITY_EDGE = {
   high: 'var(--state-negative)',
@@ -9,6 +11,8 @@ const PRIORITY_EDGE = {
 
 export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, dragging }) {
   const due = dueMeta(task.dueDate, task.status);
+  const { members } = useAuth();
+  const author = members.find((m) => m.id === (task.createdBy ?? task.updatedBy));
 
   return (
     <article
@@ -40,8 +44,14 @@ export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, draggin
         e.currentTarget.style.transform = '';
       }}
     >
-      <div className="t-body2" style={{ color: 'var(--text-primary)', fontWeight: 500, lineHeight: '20px' }}>
-        {task.title}
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className="t-body2 min-w-0 flex-1"
+          style={{ color: 'var(--text-primary)', fontWeight: 500, lineHeight: '20px' }}
+        >
+          {task.title}
+        </div>
+        {author && <MemberAvatar member={author} size={18} />}
       </div>
       {task.description && (
         <div

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import Modal from './Modal.jsx';
+import MemberAvatar from './MemberAvatar.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUSES, PRIORITIES, STATUS_LABELS, PRIORITY_LABELS } from '../lib/tasks.js';
 
 const TITLE_MAX = 100;
@@ -8,6 +10,7 @@ const DESC_MAX = 1000;
 
 export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
   const [draft, setDraft] = useState(task);
+  const { members } = useAuth();
 
   useEffect(() => {
     if (open) setDraft(task);
@@ -16,6 +19,8 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
   if (!draft) return null;
 
   const isNew = !task?.title;
+  const creator = members.find((m) => m.id === draft.createdBy);
+  const editor = members.find((m) => m.id === draft.updatedBy);
   const canSave = draft.title.trim().length > 0 && draft.title.length <= TITLE_MAX;
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
@@ -123,6 +128,24 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             />
           </Field>
         </div>
+
+        {!isNew && (creator || editor) && (
+          <div
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 t-caption"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}
+          >
+            {creator && (
+              <span className="inline-flex items-center gap-1.5">
+                작성 <MemberAvatar member={creator} size={16} /> {creator.name}
+              </span>
+            )}
+            {editor && (
+              <span className="inline-flex items-center gap-1.5">
+                최근 수정 <MemberAvatar member={editor} size={16} /> {editor.name}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );

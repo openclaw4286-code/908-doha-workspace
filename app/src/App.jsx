@@ -1,9 +1,14 @@
 import { useState } from 'react';
-import { LayoutGrid, NotebookPen, Paperclip, Lock, Plus, Search } from 'lucide-react';
+import { LayoutGrid, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut } from 'lucide-react';
 import BoardTab from './tabs/BoardTab.jsx';
 import NotesTab from './tabs/NotesTab.jsx';
 import FilesTab from './tabs/FilesTab.jsx';
 import VaultTab from './tabs/VaultTab.jsx';
+import SettingsTab from './tabs/SettingsTab.jsx';
+import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
+import LoginScreen from './components/LoginScreen.jsx';
+import FirstRunSetup from './components/FirstRunSetup.jsx';
+import MemberAvatar from './components/MemberAvatar.jsx';
 
 const TABS = [
   { id: 'board', label: 'Board', icon: LayoutGrid, Component: BoardTab },
@@ -13,8 +18,52 @@ const TABS = [
 ];
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const { currentUser, members, loading, error } = useAuth();
+
+  if (loading) {
+    return (
+      <div
+        className="flex min-h-full items-center justify-center"
+        style={{ color: 'var(--text-tertiary)' }}
+      >
+        <span className="t-body2">불러오는 중…</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-full items-center justify-center px-6">
+        <div
+          className="max-w-md rounded-lg px-4 py-3 t-body2"
+          style={{ background: 'var(--state-negative-soft)', color: 'var(--state-negative)' }}
+        >
+          연결 실패: {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (members.length === 0) return <FirstRunSetup />;
+  if (!currentUser) return <LoginScreen />;
+  return <Shell />;
+}
+
+function Shell() {
+  const { currentUser, logout } = useAuth();
   const [active, setActive] = useState('board');
-  const current = TABS.find((t) => t.id === active);
+  const isSettings = active === 'settings';
+  const current = isSettings
+    ? { id: 'settings', label: '설정', Component: SettingsTab }
+    : TABS.find((t) => t.id === active);
   const Current = current.Component;
 
   return (
@@ -32,7 +81,7 @@ export default function App() {
             Workspace
           </span>
         </div>
-        <nav className="flex flex-col gap-0.5 px-3 py-2">
+        <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
           {TABS.map(({ id, label, icon: Icon }) => {
             const on = active === id;
             return (
@@ -51,7 +100,43 @@ export default function App() {
               </button>
             );
           })}
+          <div className="mt-auto flex flex-col gap-0.5 pb-2">
+            <button
+              onClick={() => setActive('settings')}
+              className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
+              style={{
+                background: isSettings ? 'var(--accent-brand-soft)' : 'transparent',
+                color: isSettings ? 'var(--text-brand)' : 'var(--text-secondary)',
+                transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
+              }}
+            >
+              <Settings size={16} strokeWidth={1.75} />
+              설정
+            </button>
+          </div>
         </nav>
+        {currentUser && (
+          <div
+            className="flex items-center gap-2.5 border-t px-3 py-3"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <MemberAvatar member={currentUser} size={28} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="t-label truncate" style={{ color: 'var(--text-primary)' }}>
+                {currentUser.name}
+              </span>
+            </div>
+            <button
+              onClick={logout}
+              className="flex h-8 w-8 items-center justify-center rounded-md"
+              style={{ color: 'var(--text-secondary)' }}
+              aria-label="Logout"
+              title="로그아웃"
+            >
+              <LogOut size={15} strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -60,26 +145,28 @@ export default function App() {
           style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface)' }}
         >
           <div className="t-heading1">{current.label}</div>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              className="flex h-9 w-9 items-center justify-center rounded-md"
-              style={{ color: 'var(--text-secondary)' }}
-              aria-label="Search"
-            >
-              <Search size={18} strokeWidth={1.75} />
-            </button>
-            <button
-              onClick={() => {
-                if (active !== 'board') setActive('board');
-                window.dispatchEvent(new CustomEvent('workspace:new-task'));
-              }}
-              className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-              style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
-            >
-              <Plus size={16} strokeWidth={2} />
-              New
-            </button>
-          </div>
+          {!isSettings && (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                className="flex h-9 w-9 items-center justify-center rounded-md"
+                style={{ color: 'var(--text-secondary)' }}
+                aria-label="Search"
+              >
+                <Search size={18} strokeWidth={1.75} />
+              </button>
+              <button
+                onClick={() => {
+                  if (active !== 'board') setActive('board');
+                  window.dispatchEvent(new CustomEvent('workspace:new-task'));
+                }}
+                className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
+                style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
+              >
+                <Plus size={16} strokeWidth={2} />
+                New
+              </button>
+            </div>
+          )}
         </header>
         <main className="flex-1 overflow-auto">
           <Current />

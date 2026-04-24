@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import KanbanColumn from '../components/KanbanColumn.jsx';
 import TaskEditor from '../components/TaskEditor.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import {
   STATUSES,
   STATUS_LABELS,
@@ -12,6 +13,7 @@ import {
 } from '../lib/tasks.js';
 
 export default function BoardTab() {
+  const { currentUser } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [editing, setEditing] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -42,10 +44,10 @@ export default function BoardTab() {
   }, []);
 
   useEffect(() => {
-    const open = () => setEditing(emptyTask());
+    const open = () => setEditing(emptyTask({ createdBy: currentUser?.id ?? null }));
     window.addEventListener('workspace:new-task', open);
     return () => window.removeEventListener('workspace:new-task', open);
-  }, []);
+  }, [currentUser]);
 
   const columns = useMemo(() => {
     const by = Object.fromEntries(STATUSES.map((s) => [s, []]));
@@ -55,11 +57,16 @@ export default function BoardTab() {
 
   const upsert = async (task) => {
     const idx = tasks.findIndex((t) => t.id === task.id);
+    const stamped = {
+      ...task,
+      createdBy: task.createdBy ?? currentUser?.id ?? null,
+      updatedBy: currentUser?.id ?? null,
+    };
     const prev = tasks;
-    setTasks(idx === -1 ? [task, ...tasks] : tasks.map((t) => (t.id === task.id ? task : t)));
+    setTasks(idx === -1 ? [stamped, ...tasks] : tasks.map((t) => (t.id === stamped.id ? stamped : t)));
     setEditing(null);
     try {
-      const saved = await upsertTask(task);
+      const saved = await upsertTask(stamped);
       setTasks((list) => list.map((t) => (t.id === saved.id ? saved : t)));
     } catch (e) {
       setTasks(prev);
@@ -85,9 +92,9 @@ export default function BoardTab() {
     const prev = tasks;
     const target = tasks.find((t) => t.id === id);
     if (!target || target.status === status) return;
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, status } : t)));
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, status, updatedBy: currentUser?.id ?? null } : t)));
     try {
-      await updateTaskStatus(id, status);
+      await updateTaskStatus(id, status, currentUser?.id ?? null);
     } catch (e) {
       setTasks(prev);
       setError(`상태 변경 실패: ${e.message ?? e}`);

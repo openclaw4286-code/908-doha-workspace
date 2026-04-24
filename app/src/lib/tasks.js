@@ -48,7 +48,10 @@ function rowToTask(r) {
     dueDate: r.due_date ?? '',
     attachments: r.attachments ?? [],
     linkedNotes: r.linked_notes ?? [],
+    createdBy: r.created_by ?? null,
+    updatedBy: r.updated_by ?? null,
     createdAt: new Date(r.created_at).getTime(),
+    updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
   };
 }
 
@@ -63,6 +66,8 @@ function taskToRow(t) {
     due_date: t.dueDate ? t.dueDate : null,
     attachments: t.attachments ?? [],
     linked_notes: t.linkedNotes ?? [],
+    created_by: t.createdBy ?? null,
+    updated_by: t.updatedBy ?? null,
   };
 }
 
@@ -90,10 +95,10 @@ export async function removeTask(id) {
   if (error) throw error;
 }
 
-export async function updateTaskStatus(id, status) {
+export async function updateTaskStatus(id, status, updatedBy = null) {
   const { data, error } = await supabase
     .from('tasks')
-    .update({ status })
+    .update({ status, updated_by: updatedBy })
     .eq('id', id)
     .select()
     .single();
