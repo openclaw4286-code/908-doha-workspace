@@ -32,3 +32,22 @@
   html, body, #root { height: 100%; }
   body { background: var(--background); color: var(--text-primary); }
 }
+
+/* ------------------------------------------------------------------
+   Shared keyframes. Kept global so React-driven re-renders of modal
+   bodies don't re-declare them inline — re-declaration was retriggering
+   the modal slide-up animation on every dropdown change and looking
+   like a refresh flash.
+   ------------------------------------------------------------------ */
+@keyframes dsFade {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+@keyframes dsSlideUp {
+  from { opacity: 0; transform: translateY(12px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+@keyframes dsSelectFade {
+  from { opacity: 0; transform: translateY(-4px) }
+  to   { opacity: 1; transform: translateY(0) }
+}

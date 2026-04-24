@@ -9,9 +9,15 @@ const PRIORITY_EDGE = {
   low: 'transparent',
 };
 
+const AVATAR_STACK_LIMIT = 3;
+
 export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, dragging }) {
   const due = dueMeta(task.dueDate, task.status);
   const { members } = useAuth();
+  const assigneeMembers = (task.assignees ?? [])
+    .map((id) => members.find((m) => m.id === id))
+    .filter(Boolean);
+  const hasLegacyAssignee = !assigneeMembers.length && !!task.assignee;
   const author = members.find((m) => m.id === (task.createdBy ?? task.updatedBy));
 
   return (
@@ -51,7 +57,11 @@ export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, draggin
         >
           {task.title}
         </div>
-        {author && <MemberAvatar member={author} size={18} />}
+        {assigneeMembers.length > 0 ? (
+          <AvatarStack members={assigneeMembers} />
+        ) : (
+          author && <MemberAvatar member={author} size={18} />
+        )}
       </div>
       {task.description && (
         <div
@@ -61,9 +71,9 @@ export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, draggin
           {task.description}
         </div>
       )}
-      {(task.assignee || task.dueDate || task.priority === 'high') && (
+      {(hasLegacyAssignee || task.dueDate || task.priority === 'high') && (
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {task.assignee && (
+          {hasLegacyAssignee && (
             <Meta icon={User}>
               <span>{task.assignee}</span>
             </Meta>
@@ -84,6 +94,47 @@ export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, draggin
         </div>
       )}
     </article>
+  );
+}
+
+function AvatarStack({ members }) {
+  const visible = members.slice(0, AVATAR_STACK_LIMIT);
+  const extra = members.length - visible.length;
+  return (
+    <div className="flex items-center">
+      {visible.map((m, i) => (
+        <span
+          key={m.id}
+          title={m.name}
+          style={{
+            marginLeft: i === 0 ? 0 : -6,
+            boxShadow: '0 0 0 2px var(--surface)',
+            borderRadius: '999px',
+            display: 'inline-flex',
+          }}
+        >
+          <MemberAvatar member={m} size={18} />
+        </span>
+      ))}
+      {extra > 0 && (
+        <span
+          className="inline-flex items-center justify-center rounded-full t-caption"
+          style={{
+            marginLeft: -6,
+            width: 18,
+            height: 18,
+            background: 'var(--surface-layered)',
+            color: 'var(--text-secondary)',
+            boxShadow: '0 0 0 2px var(--surface)',
+            fontSize: 10,
+            fontWeight: 600,
+          }}
+          title={members.slice(AVATAR_STACK_LIMIT).map((m) => m.name).join(', ')}
+        >
+          +{extra}
+        </span>
+      )}
+    </div>
   );
 }
 

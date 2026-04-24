@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
+
+const PANEL_MARGIN = 6;
+const VIEWPORT_PAD = 12;
 
 export default function FormSelect({
   value,
@@ -11,10 +15,39 @@ export default function FormSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [panelStyle, setPanelStyle] = useState(null);
   const triggerRef = useRef(null);
   const panelRef = useRef(null);
 
   const selected = options.find((o) => o.value === value);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const update = () => {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const below = window.innerHeight - r.bottom - VIEWPORT_PAD;
+      const above = r.top - VIEWPORT_PAD;
+      const desired = Math.min(320, options.length * 44 + (label ? 36 : 0) + 8);
+      const openUp = below < desired && above > below;
+      setPanelStyle({
+        position: 'fixed',
+        left: r.left,
+        width: r.width,
+        maxHeight: Math.max(160, openUp ? above : below),
+        ...(openUp
+          ? { bottom: window.innerHeight - r.top + PANEL_MARGIN }
+          : { top: r.bottom + PANEL_MARGIN }),
+      });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open, options.length, label]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,80 +114,76 @@ export default function FormSelect({
         />
       </button>
 
-      {open && (
-        <div
-          ref={panelRef}
-          role="listbox"
-          className="absolute left-0 right-0 z-40 overflow-hidden rounded-xl"
-          style={{
-            top: 'calc(100% + 6px)',
-            background: 'var(--surface)',
-            boxShadow: 'var(--elev-3)',
-            border: '1px solid var(--border-subtle)',
-            animation: 'dsSelectFade 200ms var(--ease-soft)',
-          }}
-        >
-          {label && (
-            <div
-              className="t-caption px-4 pb-2 pt-3"
-              style={{
-                color: 'var(--text-tertiary)',
-                borderBottom: '1px solid var(--border-subtle)',
-              }}
-            >
-              {label}
-            </div>
-          )}
-          <ul className="py-1">
-            {options.map((o) => {
-              const on = o.value === value;
-              return (
-                <li key={o.value}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={on}
-                    onClick={() => {
-                      onChange(o.value);
-                      setOpen(false);
-                      triggerRef.current?.focus();
-                    }}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left t-body2"
-                    style={{
-                      color: on ? 'var(--text-brand)' : 'var(--text-primary)',
-                      fontWeight: on ? 600 : 400,
-                      background: 'transparent',
-                      transition: 'background 160ms var(--ease-soft)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--surface-layered)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <Check
-                      size={14}
-                      strokeWidth={2.25}
-                      style={{
-                        color: on ? 'var(--accent-brand)' : 'transparent',
-                        flexShrink: 0,
+      {open && panelStyle &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="listbox"
+            className="z-[60] flex flex-col overflow-hidden rounded-xl"
+            style={{
+              ...panelStyle,
+              background: 'var(--surface)',
+              boxShadow: 'var(--elev-3)',
+              border: '1px solid var(--border-subtle)',
+              animation: 'dsSelectFade 200ms var(--ease-soft)',
+            }}
+          >
+            {label && (
+              <div
+                className="t-caption px-4 pb-2 pt-3"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}
+              >
+                {label}
+              </div>
+            )}
+            <ul className="flex-1 overflow-auto py-1">
+              {options.map((o) => {
+                const on = o.value === value;
+                return (
+                  <li key={o.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={on}
+                      onClick={() => {
+                        onChange(o.value);
+                        setOpen(false);
+                        triggerRef.current?.focus();
                       }}
-                    />
-                    <span className="flex-1 truncate">{o.label}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <style>{`
-            @keyframes dsSelectFade {
-              from { opacity: 0; transform: translateY(-4px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
-        </div>
-      )}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left t-body2"
+                      style={{
+                        color: on ? 'var(--text-brand)' : 'var(--text-primary)',
+                        fontWeight: on ? 600 : 400,
+                        background: 'transparent',
+                        transition: 'background 160ms var(--ease-soft)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--surface-layered)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <Check
+                        size={14}
+                        strokeWidth={2.25}
+                        style={{
+                          color: on ? 'var(--accent-brand)' : 'transparent',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span className="flex-1 truncate">{o.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

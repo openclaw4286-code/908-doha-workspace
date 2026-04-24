@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export default function Modal({ open, onClose, title, children, footer }) {
+export default function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === 'Escape' && onClose?.();
@@ -11,6 +11,8 @@ export default function Modal({ open, onClose, title, children, footer }) {
 
   if (!open) return null;
 
+  const maxWidth = size === 'lg' ? 'max-w-3xl' : size === 'sm' ? 'max-w-md' : 'max-w-2xl';
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-5"
@@ -18,7 +20,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
       onClick={onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl"
+        className={`flex max-h-[90vh] w-full ${maxWidth} flex-col overflow-hidden rounded-2xl`}
         style={{
           background: 'var(--surface)',
           boxShadow: 'var(--elev-4)',
@@ -50,13 +52,6 @@ export default function Modal({ open, onClose, title, children, footer }) {
           </div>
         )}
       </div>
-      <style>{`
-        @keyframes dsFade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes dsSlideUp {
-          from { opacity: 0; transform: translateY(12px) }
-          to { opacity: 1; transform: translateY(0) }
-        }
-      `}</style>
     </div>
   );
 }

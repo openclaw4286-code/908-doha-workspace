@@ -6,6 +6,7 @@ import FormField from './FormField.jsx';
 import FormInput from './FormInput.jsx';
 import FormTextarea from './FormTextarea.jsx';
 import FormSelect from './FormSelect.jsx';
+import FormMemberMultiSelect from './FormMemberMultiSelect.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUSES, PRIORITIES, STATUS_LABELS, PRIORITY_LABELS } from '../lib/tasks.js';
 
@@ -112,22 +113,21 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
           </FormField>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="담당자">
-            <FormInput
-              value={draft.assignee ?? ''}
-              onChange={(e) => set({ assignee: e.target.value || null })}
-              placeholder="이름"
-            />
-          </FormField>
-          <FormField label="마감일">
-            <FormInput
-              type="date"
-              value={draft.dueDate}
-              onChange={(e) => set({ dueDate: e.target.value })}
-            />
-          </FormField>
-        </div>
+        <FormField label="담당자" hint={draft.assignees?.length ? `${draft.assignees.length}명` : null}>
+          <FormMemberMultiSelect
+            value={draft.assignees ?? []}
+            onChange={(ids) => set({ assignees: ids })}
+            members={members}
+          />
+        </FormField>
+
+        <FormField label="마감일">
+          <FormInput
+            type="date"
+            value={draft.dueDate}
+            onChange={(e) => set({ dueDate: e.target.value })}
+          />
+        </FormField>
 
         {!isNew && (creator || editor) && (
           <div
