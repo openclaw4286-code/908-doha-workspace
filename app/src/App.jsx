@@ -10,6 +10,8 @@ import { ToastProvider } from './contexts/ToastContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import FirstRunSetup from './components/FirstRunSetup.jsx';
 import MemberAvatar from './components/MemberAvatar.jsx';
+import Button from './components/Button.jsx';
+import IconButton from './components/IconButton.jsx';
 
 const TABS = [
   { id: 'board', label: 'Board', icon: LayoutGrid, Component: BoardTab },
@@ -155,26 +157,25 @@ function Shell() {
           <div className="t-heading1">{current.label}</div>
           {!isSettings && (
             <div className="ml-auto flex items-center gap-2">
-              <button
-                className="flex h-9 w-9 items-center justify-center rounded-md"
-                style={{ color: 'var(--text-secondary)' }}
-                aria-label="Search"
-              >
-                <Search size={18} strokeWidth={1.75} />
-              </button>
+              <IconButton
+                icon={Search}
+                size="md"
+                variant="clear"
+                ariaLabel="Search"
+              />
               {(active === 'board' || active === 'notes') && (
-                <button
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={Plus}
                   onClick={() => {
                     const evt =
                       active === 'notes' ? 'workspace:new-note' : 'workspace:new-task';
                     window.dispatchEvent(new CustomEvent(evt));
                   }}
-                  className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-                  style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
                 >
-                  <Plus size={16} strokeWidth={2} />
                   New
-                </button>
+                </Button>
               )}
             </div>
           )}
