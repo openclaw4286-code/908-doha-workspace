@@ -14,7 +14,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-5"
-      style={{ background: 'var(--overlay-scrim)', animation: 'dsFade 160ms var(--ease-soft)' }}
+      style={{ background: 'var(--overlay-dim)', animation: 'dsFade 160ms var(--ease-soft)' }}
       onClick={onClose}
     >
       <div

@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------
+   Workspace-specific token overrides
+   The DS ships warm-sand neutrals as brand intent; the workspace app
+   wants a plain-white chrome instead, so we override the semantic
+   tokens here. Primitive scales and non-neutral state tokens are
+   inherited from colors_and_type.css unchanged.
+   --surface-glass is the translucent base for liquid-glass surfaces
+   (sticky top bar) — 72% opacity white, designed to sit over scrolling
+   content with blur(20px) + saturate(1.4) per DS motion/transparency
+   rules.
+   ------------------------------------------------------------------ */
+:root {
+  --background:       #FFFFFF;
+  --surface:          #FFFFFF;
+  --surface-layered:  #F7F7F6;
+  --surface-sunken:   #F0F0EF;
+  --surface-glass:    rgba(255, 255, 255, 0.72);
+
+  --border-subtle:    #EEEEEE;
+  --border-default:   #E3E3E2;
+  --border-strong:    #C9C9C6;
+
+  --overlay-dim:      rgba(17, 17, 17, 0.32);
+  --overlay-scrim:    rgba(17, 17, 17, 0.52);
+}
+
 @layer base {
   html, body, #root { height: 100%; }
   body { background: var(--background); color: var(--text-primary); }

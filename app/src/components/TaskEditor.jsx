@@ -99,14 +99,14 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
           <FormField label="상태">
             <FormSelect
               value={draft.status}
-              onChange={(e) => set({ status: e.target.value })}
+              onChange={(v) => set({ status: v })}
               options={STATUS_OPTIONS}
             />
           </FormField>
           <FormField label="우선순위">
             <FormSelect
               value={draft.priority}
-              onChange={(e) => set({ priority: e.target.value })}
+              onChange={(v) => set({ priority: v })}
               options={PRIORITY_OPTIONS}
             />
           </FormField>

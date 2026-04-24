@@ -139,10 +139,15 @@ function Shell() {
         )}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         <header
-          className="flex h-14 items-center gap-3 border-b px-5"
-          style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface)' }}
+          className="sticky top-0 z-20 flex h-14 items-center gap-3 px-5"
+          style={{
+            background: 'var(--surface-glass)',
+            backdropFilter: 'blur(20px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+            borderBottom: '1px solid var(--border-subtle)',
+          }}
         >
           <div className="t-heading1">{current.label}</div>
           {!isSettings && (
@@ -168,10 +173,10 @@ function Shell() {
             </div>
           )}
         </header>
-        <main className="flex-1 overflow-auto">
+        <div className="flex-1">
           <Current />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
