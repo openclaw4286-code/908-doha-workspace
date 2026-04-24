@@ -1,7 +1,7 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "buildCommand": "./build.sh",
+  "buildCommand": "npm --prefix app ci --no-audit --no-fund && npm --prefix app run build",
   "outputDirectory": "app/dist",
-  "installCommand": "echo 'skip root install; build.sh handles app/'"
+  "installCommand": "echo 'root has no deps; build installs in app/'"
 }
