@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { FolderClosed, Inbox, Pin, Plus, StickyNote, Trash2, Pencil } from 'lucide-react';
+import { FolderClosed, Inbox, NotebookPen, Pencil, Pin, Plus, StickyNote, Trash2 } from 'lucide-react';
 import IconButton from './IconButton.jsx';
+import { useNotes } from '../contexts/NotesContext.jsx';
 
-// Notes sidebar — drawer of filters + user-managed folders.
-// Inline rename + confirm delete so the sidebar never pops a modal.
+// Secondary sidebar for the Notes tab. Sits flush against the primary
+// sidebar so the two read as one continuous left chrome.
 
 const SPECIALS = [
   { id: 'all', label: '모든 노트', icon: StickyNote },
@@ -11,15 +12,18 @@ const SPECIALS = [
   { id: 'unfiled', label: '분류 없음', icon: Inbox },
 ];
 
-export default function FolderSidebar({
-  folders,
-  notes,
-  selected,
-  onSelect,
-  onCreate,
-  onRename,
-  onRemove,
-}) {
+export default function FolderSidebar() {
+  const {
+    notes,
+    folders,
+    selected,
+    setSelected,
+    addFolder,
+    renameFolder,
+    removeFolder,
+    setOpenNote,
+  } = useNotes();
+
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -37,26 +41,25 @@ export default function FolderSidebar({
     return notes.filter((n) => n.folderId === id).length;
   };
 
+  const pick = (id) => {
+    setSelected(id);
+    setOpenNote(null);
+  };
+
   const submitCreate = async () => {
     const value = draft.trim();
-    if (!value) {
-      setCreating(false);
-      setDraft('');
-      return;
-    }
-    await onCreate(value);
     setCreating(false);
     setDraft('');
+    if (!value) return;
+    await addFolder(value);
   };
 
   const submitRename = async () => {
     const value = editingText.trim();
-    if (!value || !editingId) {
-      setEditingId(null);
-      return;
-    }
-    await onRename(editingId, value);
+    const id = editingId;
     setEditingId(null);
+    if (!value || !id) return;
+    await renameFolder(id, value);
   };
 
   return (
@@ -67,12 +70,19 @@ export default function FolderSidebar({
         background: 'var(--surface-layered)',
       }}
     >
+      <div className="flex items-center gap-2 px-2 pb-3">
+        <NotebookPen size={14} strokeWidth={1.75} style={{ color: 'var(--text-tertiary)' }} />
+        <span className="t-label" style={{ color: 'var(--text-secondary)' }}>
+          Notes
+        </span>
+      </div>
+
       <nav className="flex flex-col gap-0.5">
         {SPECIALS.map(({ id, label, icon: Icon }) => (
           <Row
             key={id}
             active={selected === id}
-            onClick={() => onSelect(id)}
+            onClick={() => pick(id)}
             icon={<Icon size={14} strokeWidth={1.75} />}
             label={label}
             count={countFor(id)}
@@ -80,10 +90,7 @@ export default function FolderSidebar({
         ))}
       </nav>
 
-      <div
-        className="my-3 border-t"
-        style={{ borderColor: 'var(--border-subtle)' }}
-      />
+      <div className="my-3 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
 
       <div className="flex items-center justify-between px-2 pb-1">
         <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
@@ -125,7 +132,7 @@ export default function FolderSidebar({
             <Row
               key={f.id}
               active={selected === f.id}
-              onClick={() => onSelect(f.id)}
+              onClick={() => pick(f.id)}
               icon={<FolderClosed size={14} strokeWidth={1.75} />}
               label={f.name}
               count={countFor(f.id)}
@@ -149,8 +156,12 @@ export default function FolderSidebar({
                     ariaLabel={`${f.name} 삭제`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`"${f.name}" 폴더를 삭제할까요? 안의 노트는 '분류 없음'으로 이동합니다.`)) {
-                        onRemove(f.id);
+                      if (
+                        confirm(
+                          `"${f.name}" 폴더를 삭제할까요? 안의 노트는 '분류 없음'으로 이동합니다.`,
+                        )
+                      ) {
+                        removeFolder(f.id);
                       }
                     }}
                   />
@@ -216,10 +227,7 @@ function Row({ active, onClick, icon, label, count, actions }) {
           {actions}
         </span>
       ) : (
-        <span
-          className="t-caption tabular-nums"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
+        <span className="t-caption tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
           {count || ''}
         </span>
       )}

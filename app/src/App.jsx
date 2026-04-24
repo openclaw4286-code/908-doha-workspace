@@ -7,9 +7,11 @@ import VaultTab from './tabs/VaultTab.jsx';
 import SettingsTab from './tabs/SettingsTab.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import { ToastProvider } from './contexts/ToastContext.jsx';
+import { NotesProvider } from './contexts/NotesContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import FirstRunSetup from './components/FirstRunSetup.jsx';
 import MemberAvatar from './components/MemberAvatar.jsx';
+import FolderSidebar from './components/FolderSidebar.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
 
@@ -59,7 +61,11 @@ function AuthGate() {
 
   if (members.length === 0) return <FirstRunSetup />;
   if (!currentUser) return <LoginScreen />;
-  return <Shell />;
+  return (
+    <NotesProvider>
+      <Shell />
+    </NotesProvider>
+  );
 }
 
 function Shell() {
@@ -144,6 +150,8 @@ function Shell() {
         )}
       </aside>
 
+      {active === 'notes' && <FolderSidebar />}
+
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         <header
           className="sticky top-0 z-20 flex h-14 items-center gap-3 px-5"
@@ -154,7 +162,7 @@ function Shell() {
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          <div className="t-heading1">{current.label}</div>
+          {active !== 'notes' && <div className="t-heading1">{current.label}</div>}
           {!isSettings && (
             <div className="ml-auto flex items-center gap-2">
               <IconButton
