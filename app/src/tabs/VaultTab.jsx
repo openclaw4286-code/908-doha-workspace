@@ -7,11 +7,13 @@ import VaultEntry from '../components/VaultEntry.jsx';
 import VaultEntryEditor from '../components/VaultEntryEditor.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { emptyEntry, fetchVaultRow, initVault, saveEntries, unlockVault } from '../lib/vault.js';
 
 export default function VaultTab() {
   const { currentUser } = useAuth();
   const toast = useToast();
+  const { readOnly } = useViewport();
 
   const [status, setStatus] = useState('checking'); // checking | uninitialized | locked | unlocked
   const [master, setMaster] = useState('');
@@ -153,6 +155,20 @@ export default function VaultTab() {
     );
   }
 
+  if (status === 'uninitialized' && readOnly) {
+    return (
+      <div
+        className="mx-auto mt-12 max-w-sm rounded-xl border border-dashed p-8 text-center"
+        style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+      >
+        <div className="t-heading2" style={{ color: 'var(--text-primary)' }}>
+          아직 보관함이 만들어지지 않았어요
+        </div>
+        <p className="t-body2 mt-1.5">데스크톱에서 마스터 비밀번호를 먼저 설정해주세요.</p>
+      </div>
+    );
+  }
+
   if (status === 'uninitialized' || status === 'locked') {
     return (
       <VaultUnlock
@@ -179,14 +195,16 @@ export default function VaultTab() {
           >
             잠그기
           </Button>
-          <Button
-            variant="primary"
-            size="md"
-            icon={Plus}
-            onClick={() => setEditing(emptyEntry())}
-          >
-            새 항목
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="primary"
+              size="md"
+              icon={Plus}
+              onClick={() => setEditing(emptyEntry())}
+            >
+              새 항목
+            </Button>
+          )}
         </div>
       </div>
 

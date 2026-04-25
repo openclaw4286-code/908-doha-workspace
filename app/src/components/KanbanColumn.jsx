@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import TaskCard from './TaskCard.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 
 export default function KanbanColumn({
   status,
@@ -14,24 +15,33 @@ export default function KanbanColumn({
   onQuickAdd,
 }) {
   const [hover, setHover] = useState(false);
+  const { readOnly } = useViewport();
 
   return (
     <section
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        if (!hover) setHover(true);
-      }}
+      onDragOver={
+        readOnly
+          ? undefined
+          : (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (!hover) setHover(true);
+            }
+      }
       onDragLeave={(e) => {
         if (e.currentTarget.contains(e.relatedTarget)) return;
         setHover(false);
       }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setHover(false);
-        const id = e.dataTransfer.getData('text/plain');
-        if (id) onDropTask?.(id, status);
-      }}
+      onDrop={
+        readOnly
+          ? undefined
+          : (e) => {
+              e.preventDefault();
+              setHover(false);
+              const id = e.dataTransfer.getData('text/plain');
+              if (id) onDropTask?.(id, status);
+            }
+      }
       className="flex min-h-[400px] w-[280px] shrink-0 flex-col gap-2 rounded-xl p-3"
       style={{
         background: hover ? 'var(--accent-brand-soft)' : 'var(--surface-layered)',
@@ -64,27 +74,29 @@ export default function KanbanColumn({
         ))}
       </div>
 
-      <button
-        onClick={() => onQuickAdd?.(status)}
-        className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-md t-label"
-        style={{
-          color: 'var(--text-secondary)',
-          border: '1px dashed var(--border-default)',
-          background: 'transparent',
-          transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'var(--surface)';
-          e.currentTarget.style.color = 'var(--text-primary)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = 'var(--text-secondary)';
-        }}
-      >
-        <Plus size={14} strokeWidth={1.75} />
-        작업 추가
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => onQuickAdd?.(status)}
+          className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-md t-label"
+          style={{
+            color: 'var(--text-secondary)',
+            border: '1px dashed var(--border-default)',
+            background: 'transparent',
+            transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--surface)';
+            e.currentTarget.style.color = 'var(--text-primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
+        >
+          <Plus size={14} strokeWidth={1.75} />
+          작업 추가
+        </button>
+      )}
     </section>
   );
 }

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import MemberAvatar from './MemberAvatar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { dataUrl, downloadFile, formatBytes } from '../lib/files.js';
 
 function iconFor(mime) {
@@ -26,6 +27,7 @@ function iconFor(mime) {
 
 export default function FileCard({ file, onRemove }) {
   const { members } = useAuth();
+  const { readOnly } = useViewport();
   const uploader = members.find((m) => m.id === file.uploaderId);
   const isImage = file.mimeType?.startsWith('image/');
   const Icon = iconFor(file.mimeType);
@@ -98,20 +100,22 @@ export default function FileCard({ file, onRemove }) {
             <Download size={13} strokeWidth={1.75} />
             다운로드
           </button>
-          <button
-            onClick={() => onRemove?.(file)}
-            className="flex h-8 w-8 items-center justify-center rounded-md"
-            style={{
-              background: 'var(--surface-layered)',
-              color: 'var(--state-negative)',
-              transition: 'background 160ms var(--ease-soft)',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--state-negative-soft)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-layered)')}
-            aria-label={`${file.name} 삭제`}
-          >
-            <Trash2 size={13} strokeWidth={1.75} />
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => onRemove?.(file)}
+              className="flex h-8 w-8 items-center justify-center rounded-md"
+              style={{
+                background: 'var(--surface-layered)',
+                color: 'var(--state-negative)',
+                transition: 'background 160ms var(--ease-soft)',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--state-negative-soft)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-layered)')}
+              aria-label={`${file.name} 삭제`}
+            >
+              <Trash2 size={13} strokeWidth={1.75} />
+            </button>
+          )}
         </div>
       </div>
     </article>

@@ -6,6 +6,7 @@ import MemberAvatar from '../components/MemberAvatar.jsx';
 import MemberEditor from '../components/MemberEditor.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { updateMember } from '../lib/members.js';
 import {
   clockIn,
@@ -21,6 +22,7 @@ import {
 export default function TeamTab() {
   const { members, currentUser, refreshMembers } = useAuth();
   const toast = useToast();
+  const { readOnly } = useViewport();
 
   const [logs, setLogs] = useState([]);
   const [openLog, setOpenLog] = useState(null);
@@ -126,6 +128,7 @@ export default function TeamTab() {
           onClockOut={handleClockOut}
           onEdit={() => setEditing(currentUser)}
           totals={totalsForMember(logs, currentUser.id, now)}
+          readOnly={readOnly}
         />
       )}
 
@@ -142,6 +145,7 @@ export default function TeamTab() {
               totals={totals}
               activeSince={memberOpen?.startedAt}
               onEdit={() => setEditing(m)}
+              readOnly={readOnly}
             />
           );
         })}
@@ -159,7 +163,7 @@ export default function TeamTab() {
   );
 }
 
-function SelfTimeCard({ user, openLog, now, onClockIn, onClockOut, onEdit, totals }) {
+function SelfTimeCard({ user, openLog, now, onClockIn, onClockOut, onEdit, totals, readOnly }) {
   const elapsed = openLog ? now - openLog.startedAt : 0;
   return (
     <section
@@ -205,29 +209,31 @@ function SelfTimeCard({ user, openLog, now, onClockIn, onClockOut, onEdit, total
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <IconButton
-          icon={Pencil}
-          size="md"
-          variant="clear"
-          ariaLabel="내 정보 수정"
-          onClick={onEdit}
-        />
-        {openLog ? (
-          <Button variant="secondary" size="md" icon={Square} onClick={onClockOut}>
-            퇴근
-          </Button>
-        ) : (
-          <Button variant="primary" size="md" icon={Play} onClick={onClockIn}>
-            출근
-          </Button>
-        )}
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-2">
+          <IconButton
+            icon={Pencil}
+            size="md"
+            variant="clear"
+            ariaLabel="내 정보 수정"
+            onClick={onEdit}
+          />
+          {openLog ? (
+            <Button variant="secondary" size="md" icon={Square} onClick={onClockOut}>
+              퇴근
+            </Button>
+          ) : (
+            <Button variant="primary" size="md" icon={Play} onClick={onClockIn}>
+              출근
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
 
-function MemberCard({ member, isSelf, totals, activeSince, onEdit }) {
+function MemberCard({ member, isSelf, totals, activeSince, onEdit, readOnly }) {
   return (
     <article
       className="flex flex-col gap-3 rounded-xl border p-4"
@@ -268,7 +274,7 @@ function MemberCard({ member, isSelf, totals, activeSince, onEdit }) {
             </div>
           )}
         </div>
-        {isSelf && (
+        {isSelf && !readOnly && (
           <IconButton
             icon={Pencil}
             size="sm"

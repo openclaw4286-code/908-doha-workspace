@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Pin, Trash2, X } from 'lucide-react';
 import AutoTextarea from './AutoTextarea.jsx';
 import IconButton from './IconButton.jsx';
+import Button from './Button.jsx';
 import FormSelect from './FormSelect.jsx';
 import SlashMenu from './SlashMenu.jsx';
 import { emptyBlock, isTextLike } from '../lib/notes.js';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 
 const TITLE_MAX = 100;
 
@@ -43,6 +45,7 @@ export default function NotePage({
   const blockRefs = useRef({});
   const dirtyRef = useRef(false);
   const draftRef = useRef(note);
+  const { readOnly } = useViewport();
 
   useEffect(() => {
     setDraft(note);
@@ -188,6 +191,7 @@ export default function NotePage({
     );
 
   const saveIfNeeded = async () => {
+    if (readOnly) return;
     const current = draftRef.current;
     if (!dirtyRef.current) return;
     if (!hasContent(current)) return;
@@ -361,45 +365,69 @@ export default function NotePage({
         <div className="t-caption flex-1 truncate" style={{ color: 'var(--text-tertiary)' }}>
           Notes / {folderLabel}
         </div>
-        <IconButton
-          icon={Pin}
-          size="md"
-          variant={draft.pinned ? 'brand' : 'clear'}
-          ariaLabel={draft.pinned ? '고정 해제' : '고정'}
-          onClick={() => mutate({ pinned: !draft.pinned })}
-        />
-        <IconButton
-          icon={Trash2}
-          size="md"
-          variant="danger"
-          ariaLabel="노트 삭제"
-          onClick={handleDelete}
-        />
+        {!readOnly && (
+          <>
+            <IconButton
+              icon={Pin}
+              size="md"
+              variant={draft.pinned ? 'brand' : 'clear'}
+              ariaLabel={draft.pinned ? '고정 해제' : '고정'}
+              onClick={() => mutate({ pinned: !draft.pinned })}
+            />
+            <IconButton
+              icon={Trash2}
+              size="md"
+              variant="danger"
+              ariaLabel="노트 삭제"
+              onClick={handleDelete}
+            />
+          </>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div style={{ minWidth: 220 }}>
-          <FormSelect
-            value={draft.folderId ?? ''}
-            onChange={(v) => mutate({ folderId: v || null })}
-            options={folderOptions}
-            placeholder="분류 없음"
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div style={{ minWidth: 220 }}>
+            <FormSelect
+              value={draft.folderId ?? ''}
+              onChange={(v) => mutate({ folderId: v || null })}
+              options={folderOptions}
+              placeholder="분류 없음"
+            />
+          </div>
+          <TagEditor
+            tags={draft.tags ?? []}
+            value={tagInput}
+            onInput={setTagInput}
+            onAdd={addTag}
+            onRemove={removeTag}
           />
         </div>
-        <TagEditor
-          tags={draft.tags ?? []}
-          value={tagInput}
-          onInput={setTagInput}
-          onAdd={addTag}
-          onRemove={removeTag}
-        />
-      </div>
+      )}
+
+      {readOnly && (draft.tags ?? []).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {draft.tags.map((t) => (
+            <span
+              key={t}
+              className="inline-flex items-center rounded-full px-2 py-0.5 t-caption"
+              style={{
+                background: 'var(--surface-layered)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              #{t}
+            </span>
+          ))}
+        </div>
+      )}
 
       <AutoTextarea
         value={draft.title}
         onChange={(e) => mutate({ title: e.target.value.slice(0, TITLE_MAX) })}
         placeholder="제목"
         minRows={1}
+        readOnly={readOnly}
         style={{
           fontSize: 32,
           lineHeight: '42px',
@@ -418,6 +446,7 @@ export default function NotePage({
             key={b.id}
             block={b}
             number={numberByBlock[b.id]}
+            readOnly={readOnly}
             registerRef={(el) => {
               if (el) blockRefs.current[b.id] = el;
               else delete blockRefs.current[b.id];
@@ -430,15 +459,17 @@ export default function NotePage({
           />
         ))}
 
-        <div
-          className="mt-3 t-caption px-1"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
-          빈 블록에서 <kbd style={kbdStyle}>/</kbd>로 블록 추가 ·{' '}
-          <kbd style={kbdStyle}>#</kbd> <kbd style={kbdStyle}>-</kbd>{' '}
-          <kbd style={kbdStyle}>[]</kbd> <kbd style={kbdStyle}>{'>'}</kbd>{' '}
-          + Space로 변환
-        </div>
+        {!readOnly && (
+          <div
+            className="mt-3 t-caption px-1"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            빈 블록에서 <kbd style={kbdStyle}>/</kbd>로 블록 추가 ·{' '}
+            <kbd style={kbdStyle}>#</kbd> <kbd style={kbdStyle}>-</kbd>{' '}
+            <kbd style={kbdStyle}>[]</kbd> <kbd style={kbdStyle}>{'>'}</kbd>{' '}
+            + Space로 변환
+          </div>
+        )}
       </div>
 
       {slash && (
@@ -465,6 +496,7 @@ const kbdStyle = {
 function BlockRow({
   block,
   number,
+  readOnly,
   registerRef,
   onTextChange,
   onCheckedChange,
@@ -474,7 +506,7 @@ function BlockRow({
 }) {
   if (block.type === 'divider') {
     return (
-      <DividerRow onRemove={onRemove} disableRemove={disableRemove} />
+      <DividerRow onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} />
     );
   }
 
@@ -482,8 +514,9 @@ function BlockRow({
     ref: registerRef,
     value: block.text,
     onChange: (e) => onTextChange(e.target.value),
-    onKeyDown,
+    onKeyDown: readOnly ? undefined : onKeyDown,
     minRows: 1,
+    readOnly,
   };
 
   if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
@@ -493,7 +526,7 @@ function BlockRow({
       h3: { fontSize: 18, lineHeight: '26px', fontWeight: 600 },
     };
     return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove}>
+      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly}>
         <AutoTextarea
           {...sharedProps}
           placeholder={
@@ -511,12 +544,13 @@ function BlockRow({
 
   if (block.type === 'check') {
     return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} align="start">
+      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} align="start">
         <label className="mt-1.5 flex cursor-pointer items-center">
           <input
             type="checkbox"
             checked={!!block.checked}
             onChange={(e) => onCheckedChange(e.target.checked)}
+            disabled={readOnly}
             className="h-4 w-4"
             style={{ accentColor: 'var(--accent-brand)' }}
           />
@@ -537,7 +571,7 @@ function BlockRow({
 
   if (block.type === 'bullet') {
     return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} align="start">
+      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} align="start">
         <span
           className="select-none"
           style={{
@@ -567,7 +601,7 @@ function BlockRow({
 
   if (block.type === 'numbered') {
     return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} align="start">
+      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} align="start">
         <span
           className="select-none"
           style={{
@@ -597,7 +631,7 @@ function BlockRow({
 
   if (block.type === 'quote') {
     return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove}>
+      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly}>
         <div
           className="pl-3"
           style={{
@@ -622,10 +656,10 @@ function BlockRow({
 
   // text (default)
   return (
-    <RowShell onRemove={onRemove} disableRemove={disableRemove}>
+    <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly}>
       <AutoTextarea
         {...sharedProps}
-        placeholder="내용 또는 / 입력"
+        placeholder={readOnly ? '' : '내용 또는 / 입력'}
         style={{
           fontSize: 16,
           lineHeight: '26px',
@@ -636,32 +670,36 @@ function BlockRow({
   );
 }
 
-function DividerRow({ onRemove, disableRemove }) {
+function DividerRow({ onRemove, disableRemove, readOnly }) {
   return (
     <div
       className="group flex items-center gap-2 rounded-md px-1 py-2"
       style={{ transition: 'background 160ms var(--ease-soft)' }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-layered)')}
+      onMouseEnter={(e) => {
+        if (!readOnly) e.currentTarget.style.background = 'var(--surface-layered)';
+      }}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
       <div
         className="flex-1"
         style={{ borderTop: '1px solid var(--border-default)' }}
       />
-      <button
-        onClick={onRemove}
-        disabled={disableRemove}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ color: 'var(--text-tertiary)' }}
-        aria-label="구분선 삭제"
-      >
-        <X size={14} strokeWidth={1.75} />
-      </button>
+      {!readOnly && (
+        <button
+          onClick={onRemove}
+          disabled={disableRemove}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
+          style={{ color: 'var(--text-tertiary)' }}
+          aria-label="구분선 삭제"
+        >
+          <X size={14} strokeWidth={1.75} />
+        </button>
+      )}
     </div>
   );
 }
 
-function RowShell({ children, onRemove, disableRemove, align = 'center' }) {
+function RowShell({ children, onRemove, disableRemove, readOnly, align = 'center' }) {
   return (
     <div
       className="group flex gap-2 rounded-md px-1 py-1"
@@ -669,22 +707,26 @@ function RowShell({ children, onRemove, disableRemove, align = 'center' }) {
         alignItems: align === 'start' ? 'flex-start' : 'center',
         transition: 'background 160ms var(--ease-soft)',
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-layered)')}
+      onMouseEnter={(e) => {
+        if (!readOnly) e.currentTarget.style.background = 'var(--surface-layered)';
+      }}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
       <div className="flex min-w-0 flex-1 items-start gap-2">{children}</div>
-      <button
-        onClick={onRemove}
-        disabled={disableRemove}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
-        style={{
-          color: 'var(--text-tertiary)',
-          cursor: disableRemove ? 'not-allowed' : 'pointer',
-        }}
-        aria-label="블록 삭제"
-      >
-        <X size={14} strokeWidth={1.75} />
-      </button>
+      {!readOnly && (
+        <button
+          onClick={onRemove}
+          disabled={disableRemove}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
+          style={{
+            color: 'var(--text-tertiary)',
+            cursor: disableRemove ? 'not-allowed' : 'pointer',
+          }}
+          aria-label="블록 삭제"
+        >
+          <X size={14} strokeWidth={1.75} />
+        </button>
+      )}
     </div>
   );
 }

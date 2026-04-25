@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, KeyRound, ChevronRight, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { createMember, updateMember, deleteMember } from '../lib/members.js';
 import { changeMasterPassword, fetchVaultRow } from '../lib/vault.js';
 import MemberAvatar from '../components/MemberAvatar.jsx';
@@ -12,6 +13,7 @@ import VaultPasswordModal from '../components/VaultPasswordModal.jsx';
 export default function SettingsTab() {
   const { members, currentUser, refreshMembers } = useAuth();
   const toast = useToast();
+  const { readOnly } = useViewport();
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
   const [vaultExists, setVaultExists] = useState(false);
@@ -68,14 +70,16 @@ export default function SettingsTab() {
       <section className="mb-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="t-heading1">멤버</h2>
-          <button
-            onClick={() => setEditing({})}
-            className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-            style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
-          >
-            <Plus size={16} strokeWidth={2} />
-            멤버 추가
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setEditing({})}
+              className="flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
+              style={{ background: 'var(--accent-brand)', color: 'var(--text-inverted)' }}
+            >
+              <Plus size={16} strokeWidth={2} />
+              멤버 추가
+            </button>
+          )}
         </div>
 
         {error && (
@@ -96,7 +100,8 @@ export default function SettingsTab() {
             return (
               <button
                 key={m.id}
-                onClick={() => setEditing(m)}
+                onClick={() => !readOnly && setEditing(m)}
+                disabled={readOnly}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left"
                 style={{
                   borderColor: 'var(--border-subtle)',
@@ -163,7 +168,7 @@ export default function SettingsTab() {
           <Button
             variant="secondary"
             size="md"
-            disabled={!vaultExists}
+            disabled={!vaultExists || readOnly}
             onClick={() => setVaultModal(true)}
           >
             변경

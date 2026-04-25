@@ -7,7 +7,9 @@ import FormInput from './FormInput.jsx';
 import FormTextarea from './FormTextarea.jsx';
 import FormSelect from './FormSelect.jsx';
 import FormMemberMultiSelect from './FormMemberMultiSelect.jsx';
+import Button from './Button.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { STATUSES, PRIORITIES, STATUS_LABELS, PRIORITY_LABELS } from '../lib/tasks.js';
 
 const TITLE_MAX = 100;
@@ -19,6 +21,7 @@ const PRIORITY_OPTIONS = PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABE
 export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
   const [draft, setDraft] = useState(task);
   const { members } = useAuth();
+  const { readOnly } = useViewport();
 
   useEffect(() => {
     if (open) setDraft(task);
@@ -42,39 +45,34 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={isNew ? '새 작업' : '작업 편집'}
+      title={readOnly ? '작업 보기' : isNew ? '새 작업' : '작업 편집'}
       footer={
-        <>
-          {!isNew && (
-            <button
-              onClick={() => onDelete?.(draft)}
-              className="mr-auto flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-              style={{ color: 'var(--state-negative)' }}
-            >
-              <Trash2 size={15} strokeWidth={1.75} />
-              삭제
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="h-9 rounded-md px-3.5 t-label"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            취소
-          </button>
-          <button
-            onClick={save}
-            disabled={!canSave}
-            className="h-9 rounded-md px-3.5 t-label"
-            style={{
-              background: canSave ? 'var(--accent-brand)' : 'var(--surface-sunken)',
-              color: canSave ? 'var(--text-inverted)' : 'var(--text-tertiary)',
-              transition: 'background 160ms var(--ease-soft)',
-            }}
-          >
-            저장
-          </button>
-        </>
+        readOnly ? (
+          <Button variant="secondary" size="md" onClick={onClose}>
+            닫기
+          </Button>
+        ) : (
+          <>
+            {!isNew && (
+              <Button
+                variant="ghost"
+                size="md"
+                icon={Trash2}
+                onClick={() => onDelete?.(draft)}
+                style={{ color: 'var(--state-negative)', border: 'none' }}
+                className="mr-auto"
+              >
+                삭제
+              </Button>
+            )}
+            <Button variant="secondary" size="md" onClick={onClose}>
+              취소
+            </Button>
+            <Button variant="primary" size="md" disabled={!canSave} onClick={save}>
+              저장
+            </Button>
+          </>
+        )
       }
     >
       <div className="flex flex-col gap-5">
@@ -83,7 +81,8 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             value={draft.title}
             onChange={(e) => set({ title: e.target.value.slice(0, TITLE_MAX) })}
             placeholder="무엇을 처리하나요?"
-            autoFocus
+            autoFocus={!readOnly}
+            readOnly={readOnly}
           />
         </FormField>
 
@@ -94,6 +93,7 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             placeholder="상세 설명 · 선택"
             rows={8}
             style={{ minHeight: 200 }}
+            readOnly={readOnly}
           />
         </FormField>
 
@@ -103,6 +103,7 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
               value={draft.status}
               onChange={(v) => set({ status: v })}
               options={STATUS_OPTIONS}
+              disabled={readOnly}
             />
           </FormField>
           <FormField label="우선순위">
@@ -110,6 +111,7 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
               value={draft.priority}
               onChange={(v) => set({ priority: v })}
               options={PRIORITY_OPTIONS}
+              disabled={readOnly}
             />
           </FormField>
         </div>
@@ -119,6 +121,7 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             value={draft.assignees ?? []}
             onChange={(ids) => set({ assignees: ids })}
             members={members}
+            disabled={readOnly}
           />
         </FormField>
 
@@ -127,6 +130,7 @@ export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
             type="date"
             value={draft.dueDate}
             onChange={(e) => set({ dueDate: e.target.value })}
+            readOnly={readOnly}
           />
         </FormField>
 

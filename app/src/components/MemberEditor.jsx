@@ -7,9 +7,11 @@ import FormInput from './FormInput.jsx';
 import FormTextarea from './FormTextarea.jsx';
 import ColorPicker from './ColorPicker.jsx';
 import { MEMBER_COLORS } from '../lib/members.js';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 
 export default function MemberEditor({ open, member, onSave, onDelete, onClose, isSelf }) {
   const isNew = !member?.id;
+  const { readOnly } = useViewport();
   const [name, setName] = useState('');
   const [color, setColor] = useState(MEMBER_COLORS[0]);
   const [role, setRole] = useState('');
@@ -52,28 +54,34 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
     <Modal
       open={open}
       onClose={onClose}
-      title={isNew ? '멤버 추가' : '멤버 편집'}
+      title={readOnly ? '멤버 보기' : isNew ? '멤버 추가' : '멤버 편집'}
       footer={
-        <>
-          {!isNew && !isSelf && (
-            <Button
-              variant="ghost"
-              size="md"
-              icon={Trash2}
-              onClick={() => onDelete?.(member)}
-              style={{ color: 'var(--state-negative)', border: 'none' }}
-              className="mr-auto"
-            >
-              삭제
-            </Button>
-          )}
+        readOnly ? (
           <Button variant="secondary" size="md" onClick={onClose}>
-            취소
+            닫기
           </Button>
-          <Button variant="primary" size="md" disabled={!canSave} onClick={save}>
-            저장
-          </Button>
-        </>
+        ) : (
+          <>
+            {!isNew && !isSelf && (
+              <Button
+                variant="ghost"
+                size="md"
+                icon={Trash2}
+                onClick={() => onDelete?.(member)}
+                style={{ color: 'var(--state-negative)', border: 'none' }}
+                className="mr-auto"
+              >
+                삭제
+              </Button>
+            )}
+            <Button variant="secondary" size="md" onClick={onClose}>
+              취소
+            </Button>
+            <Button variant="primary" size="md" disabled={!canSave} onClick={save}>
+              저장
+            </Button>
+          </>
+        )
       }
     >
       <div className="flex flex-col gap-5">

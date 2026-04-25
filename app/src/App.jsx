@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { LayoutGrid, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LayoutGrid, Menu, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut, Users } from 'lucide-react';
 import BoardTab from './tabs/BoardTab.jsx';
 import NotesTab from './tabs/NotesTab.jsx';
 import FilesTab from './tabs/FilesTab.jsx';
@@ -9,6 +9,7 @@ import SettingsTab from './tabs/SettingsTab.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import { ToastProvider } from './contexts/ToastContext.jsx';
 import { NotesProvider } from './contexts/NotesContext.jsx';
+import { ViewportProvider, useViewport } from './contexts/ViewportContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import FirstRunSetup from './components/FirstRunSetup.jsx';
 import MemberAvatar from './components/MemberAvatar.jsx';
@@ -25,11 +26,13 @@ const TABS = [
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <AuthGate />
-      </AuthProvider>
-    </ToastProvider>
+    <ViewportProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
+      </ToastProvider>
+    </ViewportProvider>
   );
 }
 
@@ -76,7 +79,9 @@ const BOTTOM_TABS = [
 
 function Shell() {
   const { currentUser, logout } = useAuth();
+  const { isMobile, readOnly } = useViewport();
   const [active, setActive] = useState('board');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const isBottom = BOTTOM_TABS.some((t) => t.id === active);
   const current = isBottom
     ? BOTTOM_TABS.find((t) => t.id === active)
@@ -84,11 +89,37 @@ function Shell() {
   const Current = current.Component;
   const isSettings = active === 'settings';
 
+  // close the drawer when the viewport grows out of mobile
+  useEffect(() => {
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
+
+  // close drawer after picking a tab on mobile
+  const pickTab = (id) => {
+    setActive(id);
+    if (isMobile) setDrawerOpen(false);
+  };
+
   return (
     <div className="flex h-full">
+      {isMobile && drawerOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ background: 'var(--overlay-dim)' }}
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
       <aside
-        className="flex w-56 shrink-0 flex-col border-r"
-        style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-layered)' }}
+        className={`flex w-56 shrink-0 flex-col border-r ${
+          isMobile ? 'fixed inset-y-0 left-0 z-50' : ''
+        }`}
+        style={{
+          borderColor: 'var(--border-subtle)',
+          background: 'var(--surface-layered)',
+          transform: isMobile && !drawerOpen ? 'translateX(-100%)' : 'translateX(0)',
+          transition: isMobile ? 'transform 220ms var(--ease-emphasis)' : 'none',
+        }}
       >
         <div
           className="flex h-14 items-center px-5 t-heading1"
@@ -105,7 +136,7 @@ function Shell() {
             return (
               <button
                 key={id}
-                onClick={() => setActive(id)}
+                onClick={() => pickTab(id)}
                 className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
                 style={{
                   background: on ? 'var(--accent-brand-soft)' : 'transparent',
@@ -124,7 +155,7 @@ function Shell() {
               return (
                 <button
                   key={id}
-                  onClick={() => setActive(id)}
+                  onClick={() => pickTab(id)}
                   className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
                   style={{
                     background: on ? 'var(--accent-brand-soft)' : 'transparent',
@@ -163,7 +194,7 @@ function Shell() {
         )}
       </aside>
 
-      {active === 'notes' && <FolderSidebar />}
+      {active === 'notes' && !isMobile && <FolderSidebar />}
 
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         <header
@@ -175,6 +206,15 @@ function Shell() {
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
+          {isMobile && (
+            <IconButton
+              icon={Menu}
+              size="md"
+              variant="clear"
+              ariaLabel="메뉴"
+              onClick={() => setDrawerOpen(true)}
+            />
+          )}
           {active !== 'notes' && <div className="t-heading1">{current.label}</div>}
           {!isBottom && (
             <div className="ml-auto flex items-center gap-2">
@@ -184,7 +224,7 @@ function Shell() {
                 variant="clear"
                 ariaLabel="Search"
               />
-              {(active === 'board' || active === 'notes') && (
+              {!readOnly && (active === 'board' || active === 'notes') && (
                 <Button
                   variant="primary"
                   size="md"

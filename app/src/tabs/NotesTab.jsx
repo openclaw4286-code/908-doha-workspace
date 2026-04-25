@@ -1,12 +1,15 @@
 import NoteCard from '../components/NoteCard.jsx';
 import NotePage from '../components/NotePage.jsx';
 import SearchField from '../components/SearchField.jsx';
+import FormSelect from '../components/FormSelect.jsx';
 import { sortNotes, useNotes } from '../contexts/NotesContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 
 export default function NotesTab() {
   const {
     folders,
     selected,
+    setSelected,
     openNote,
     setOpenNote,
     query,
@@ -17,6 +20,14 @@ export default function NotesTab() {
     upsert,
     remove,
   } = useNotes();
+  const { isMobile } = useViewport();
+
+  const folderOptions = [
+    { value: 'all', label: '모든 노트' },
+    { value: 'pinned', label: '고정됨' },
+    { value: 'unfiled', label: '분류 없음' },
+    ...folders.map((f) => ({ value: f.id, label: f.name })),
+  ];
 
   if (openNote) {
     return (
@@ -32,13 +43,24 @@ export default function NotesTab() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
-      <div className="mb-5 flex items-center justify-between gap-4">
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6 sm:py-6">
+      <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="t-title3">{folderNameOf(selected)}</h2>
         <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
           {filtered.length}개
         </span>
       </div>
+
+      {isMobile && (
+        <div className="mb-3">
+          <FormSelect
+            value={selected}
+            onChange={setSelected}
+            options={folderOptions}
+            placeholder="폴더"
+          />
+        </div>
+      )}
 
       <div className="mb-4">
         <SearchField

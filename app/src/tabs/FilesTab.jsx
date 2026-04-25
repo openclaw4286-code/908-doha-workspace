@@ -4,11 +4,13 @@ import FileDropzone from '../components/FileDropzone.jsx';
 import FileCard from '../components/FileCard.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { formatBytes, listFiles, removeFile, uploadFile } from '../lib/files.js';
 
 export default function FilesTab() {
   const { currentUser } = useAuth();
   const toast = useToast();
+  const { readOnly } = useViewport();
   const [files, setFiles] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [uploading, setUploading] = useState(0);
@@ -60,8 +62,8 @@ export default function FilesTab() {
   const totalSize = files.reduce((s, f) => s + f.size, 0);
 
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-6">
-      <FileDropzone onFiles={onFiles} disabled={uploading > 0} />
+    <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-5 sm:py-6">
+      {!readOnly && <FileDropzone onFiles={onFiles} disabled={uploading > 0} />}
 
       <div className="mt-4 flex items-center justify-between">
         <div className="flex items-center gap-2 t-caption" style={{ color: 'var(--text-tertiary)' }}>

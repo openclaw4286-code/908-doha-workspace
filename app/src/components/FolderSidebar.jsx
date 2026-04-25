@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FolderClosed, Inbox, NotebookPen, Pencil, Pin, Plus, StickyNote, Trash2 } from 'lucide-react';
 import IconButton from './IconButton.jsx';
 import { useNotes } from '../contexts/NotesContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 
 // Secondary sidebar for the Notes tab. Sits flush against the primary
 // sidebar so the two read as one continuous left chrome.
@@ -23,6 +24,7 @@ export default function FolderSidebar() {
     removeFolder,
     setOpenNote,
   } = useNotes();
+  const { readOnly } = useViewport();
 
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState('');
@@ -96,13 +98,15 @@ export default function FolderSidebar() {
         <span className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
           폴더
         </span>
-        <IconButton
-          icon={Plus}
-          size="sm"
-          variant="clear"
-          ariaLabel="폴더 추가"
-          onClick={() => setCreating(true)}
-        />
+        {!readOnly && (
+          <IconButton
+            icon={Plus}
+            size="sm"
+            variant="clear"
+            ariaLabel="폴더 추가"
+            onClick={() => setCreating(true)}
+          />
+        )}
       </div>
 
       <nav className="flex flex-col gap-0.5">
@@ -137,35 +141,37 @@ export default function FolderSidebar() {
               label={f.name}
               count={countFor(f.id)}
               actions={
-                <>
-                  <IconButton
-                    icon={Pencil}
-                    size="sm"
-                    variant="clear"
-                    ariaLabel={`${f.name} 이름 변경`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingId(f.id);
-                      setEditingText(f.name);
-                    }}
-                  />
-                  <IconButton
-                    icon={Trash2}
-                    size="sm"
-                    variant="danger"
-                    ariaLabel={`${f.name} 삭제`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (
-                        confirm(
-                          `"${f.name}" 폴더를 삭제할까요? 안의 노트는 '분류 없음'으로 이동합니다.`,
-                        )
-                      ) {
-                        removeFolder(f.id);
-                      }
-                    }}
-                  />
-                </>
+                readOnly ? null : (
+                  <>
+                    <IconButton
+                      icon={Pencil}
+                      size="sm"
+                      variant="clear"
+                      ariaLabel={`${f.name} 이름 변경`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(f.id);
+                        setEditingText(f.name);
+                      }}
+                    />
+                    <IconButton
+                      icon={Trash2}
+                      size="sm"
+                      variant="danger"
+                      ariaLabel={`${f.name} 삭제`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (
+                          confirm(
+                            `"${f.name}" 폴더를 삭제할까요? 안의 노트는 '분류 없음'으로 이동합니다.`,
+                          )
+                        ) {
+                          removeFolder(f.id);
+                        }
+                      }}
+                    />
+                  </>
+                )
               }
             />
           ),
