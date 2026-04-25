@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import KanbanColumn from '../components/KanbanColumn.jsx';
 import TaskEditor from '../components/TaskEditor.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import {
@@ -130,22 +131,26 @@ export default function BoardTab() {
           </span>
         </div>
 
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {STATUSES.map((s) => (
-            <KanbanColumn
-              key={s}
-              status={s}
-              label={STATUS_LABELS[s]}
-              tasks={columns[s]}
-              draggingId={draggingId}
-              onDropTask={moveToStatus}
-              onDragStart={setDraggingId}
-              onDragEnd={() => setDraggingId(null)}
-              onOpen={setEditing}
-              onQuickAdd={(status) => setEditing(emptyTask({ status }))}
-            />
-          ))}
-        </div>
+        {!loaded ? (
+          <BoardSkeleton />
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-4">
+            {STATUSES.map((s) => (
+              <KanbanColumn
+                key={s}
+                status={s}
+                label={STATUS_LABELS[s]}
+                tasks={columns[s]}
+                draggingId={draggingId}
+                onDropTask={moveToStatus}
+                onDragStart={setDraggingId}
+                onDragEnd={() => setDraggingId(null)}
+                onOpen={setEditing}
+                onQuickAdd={(status) => setEditing(emptyTask({ status }))}
+              />
+            ))}
+          </div>
+        )}
 
         {empty && loaded && !error && (
           <div
@@ -169,6 +174,41 @@ export default function BoardTab() {
         onDelete={remove}
         onClose={() => setEditing(null)}
       />
+    </div>
+  );
+}
+
+function BoardSkeleton() {
+  const COLS = [3, 2, 1, 2];
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-4">
+      {COLS.map((cardCount, ci) => (
+        <section
+          key={ci}
+          className="flex min-h-[400px] w-[280px] shrink-0 flex-col gap-2 rounded-xl p-3"
+          style={{ background: 'var(--surface-layered)' }}
+        >
+          <header className="flex items-center justify-between px-1">
+            <Skeleton width={64} height={14} />
+            <Skeleton width={20} height={14} rounded={999} />
+          </header>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: cardCount }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-lg border p-3"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--border-subtle)',
+                }}
+              >
+                <Skeleton width="80%" height={14} />
+                <Skeleton width="55%" height={12} style={{ marginTop: 8 }} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

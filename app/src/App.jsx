@@ -16,6 +16,7 @@ import MemberAvatar from './components/MemberAvatar.jsx';
 import FolderSidebar from './components/FolderSidebar.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
+import Skeleton from './components/Skeleton.jsx';
 
 const TABS = [
   { id: 'board', label: 'Board', icon: LayoutGrid, Component: BoardTab },
@@ -40,14 +41,7 @@ function AuthGate() {
   const { currentUser, members, loading, error } = useAuth();
 
   if (loading) {
-    return (
-      <div
-        className="flex min-h-full items-center justify-center"
-        style={{ color: 'var(--text-tertiary)' }}
-      >
-        <span className="t-body2">불러오는 중…</span>
-      </div>
-    );
+    return <BootSkeleton />;
   }
 
   if (error) {
@@ -243,6 +237,58 @@ function Shell() {
         </header>
         <div className="flex-1">
           <Current />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function BootSkeleton() {
+  return (
+    <div className="flex h-full">
+      <aside
+        className="hidden w-56 shrink-0 flex-col gap-2 border-r p-3 md:flex"
+        style={{
+          borderColor: 'var(--border-subtle)',
+          background: 'var(--surface-layered)',
+        }}
+      >
+        <div className="px-2 pb-3 pt-1">
+          <Skeleton width={120} height={18} />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} width="100%" height={32} rounded={8} />
+        ))}
+      </aside>
+      <main className="flex flex-1 flex-col">
+        <header
+          className="flex h-14 items-center gap-3 px-5"
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
+        >
+          <Skeleton width={88} height={20} />
+          <div className="ml-auto flex items-center gap-2">
+            <Skeleton width={36} height={36} rounded={10} />
+            <Skeleton width={72} height={36} rounded={10} />
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 py-6">
+          <Skeleton width={160} height={22} />
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <article
+                key={i}
+                className="rounded-xl border p-4"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--border-subtle)',
+                }}
+              >
+                <Skeleton width="70%" height={14} />
+                <Skeleton width="100%" height={12} style={{ marginTop: 10 }} />
+                <Skeleton width="55%" height={12} style={{ marginTop: 6 }} />
+              </article>
+            ))}
+          </div>
         </div>
       </main>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import FileDropzone from '../components/FileDropzone.jsx';
 import FileCard from '../components/FileCard.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import { useViewport } from '../contexts/ViewportContext.jsx';
@@ -79,7 +80,11 @@ export default function FilesTab() {
         </span>
       </div>
 
-      {files.length > 0 && (
+      {!loaded && (
+        <FileGridSkeleton count={8} />
+      )}
+
+      {loaded && files.length > 0 && (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {files.map((f) => (
             <FileCard key={f.id} file={f} onRemove={remove} />
@@ -98,6 +103,37 @@ export default function FilesTab() {
           <p className="t-body2 mt-1.5">위 영역에 파일을 끌어다 놓으면 바로 올라가요.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function FileGridSkeleton({ count = 8 }) {
+  return (
+    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      {Array.from({ length: count }).map((_, i) => (
+        <article
+          key={i}
+          className="flex flex-col overflow-hidden rounded-xl border"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border-subtle)',
+          }}
+        >
+          <Skeleton
+            width="100%"
+            height={0}
+            rounded={0}
+            style={{ aspectRatio: '4 / 3' }}
+          />
+          <div className="flex flex-col gap-1 p-3">
+            <Skeleton width="80%" height={14} />
+            <div className="mt-1 flex items-center justify-between">
+              <Skeleton width={56} height={10} />
+              <Skeleton width={16} height={16} circle />
+            </div>
+          </div>
+        </article>
+      ))}
     </div>
   );
 }

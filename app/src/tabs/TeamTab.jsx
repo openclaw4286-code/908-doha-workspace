@@ -4,6 +4,7 @@ import Button from '../components/Button.jsx';
 import IconButton from '../components/IconButton.jsx';
 import MemberAvatar from '../components/MemberAvatar.jsx';
 import MemberEditor from '../components/MemberEditor.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import { useViewport } from '../contexts/ViewportContext.jsx';
@@ -28,6 +29,7 @@ export default function TeamTab() {
   const [openLog, setOpenLog] = useState(null);
   const [editing, setEditing] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [loaded, setLoaded] = useState(false);
   const tickRef = useRef(null);
 
   const refresh = async () => {
@@ -42,6 +44,8 @@ export default function TeamTab() {
       setOpenLog(open);
     } catch (e) {
       toast.error(`불러오기 실패: ${e.message ?? e}`);
+    } finally {
+      setLoaded(true);
     }
   };
 
@@ -119,37 +123,42 @@ export default function TeamTab() {
         </span>
       </div>
 
-      {currentUser && (
-        <SelfTimeCard
-          user={currentUser}
-          openLog={openLog}
-          now={now}
-          onClockIn={handleClockIn}
-          onClockOut={handleClockOut}
-          onEdit={() => setEditing(currentUser)}
-          totals={totalsForMember(logs, currentUser.id, now)}
-          readOnly={readOnly}
-        />
-      )}
-
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {sortedMembers.map((m) => {
-          const totals = totalsForMember(logs, m.id, now);
-          const memberOpen =
-            m.id === currentUser?.id ? openLog : null;
-          return (
-            <MemberCard
-              key={m.id}
-              member={m}
-              isSelf={m.id === currentUser?.id}
-              totals={totals}
-              activeSince={memberOpen?.startedAt}
-              onEdit={() => setEditing(m)}
+      {!loaded ? (
+        <TeamSkeleton count={Math.max(3, members.length || 4)} />
+      ) : (
+        <>
+          {currentUser && (
+            <SelfTimeCard
+              user={currentUser}
+              openLog={openLog}
+              now={now}
+              onClockIn={handleClockIn}
+              onClockOut={handleClockOut}
+              onEdit={() => setEditing(currentUser)}
+              totals={totalsForMember(logs, currentUser.id, now)}
               readOnly={readOnly}
             />
-          );
-        })}
-      </div>
+          )}
+
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {sortedMembers.map((m) => {
+              const totals = totalsForMember(logs, m.id, now);
+              const memberOpen = m.id === currentUser?.id ? openLog : null;
+              return (
+                <MemberCard
+                  key={m.id}
+                  member={m}
+                  isSelf={m.id === currentUser?.id}
+                  totals={totals}
+                  activeSince={memberOpen?.startedAt}
+                  onEdit={() => setEditing(m)}
+                  readOnly={readOnly}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <MemberEditor
         open={!!editing}
@@ -328,5 +337,55 @@ function MemberCard({ member, isSelf, totals, activeSince, onEdit, readOnly }) {
         </div>
       )}
     </article>
+  );
+}
+
+
+function TeamSkeleton({ count = 4 }) {
+  return (
+    <>
+      <section
+        className="rounded-2xl border p-5"
+        style={{ background: "var(--surface)", borderColor: "var(--border-subtle)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Skeleton width={48} height={48} circle />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Skeleton width={120} height={16} />
+            <Skeleton width={80} height={12} />
+          </div>
+          <Skeleton width={88} height={36} rounded={10} />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton width={36} height={10} />
+              <Skeleton width={60} height={18} style={{ marginTop: 6 }} />
+            </div>
+          ))}
+        </div>
+      </section>
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: count }).map((_, i) => (
+          <article
+            key={i}
+            className="rounded-2xl border p-4"
+            style={{ background: "var(--surface)", borderColor: "var(--border-subtle)" }}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton width={40} height={40} circle />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton width="60%" height={14} />
+                <Skeleton width="40%" height={11} />
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <Skeleton width={48} height={10} />
+              <Skeleton width={48} height={14} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
