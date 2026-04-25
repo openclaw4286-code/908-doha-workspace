@@ -1,11 +1,13 @@
 // File CRUD backed by Supabase. Storage is base64 in the `ref`
-// column for v1 (spec ≤5MB); Drive/S3 variants are listed in the
-// storage enum but not wired yet.
+// column; Drive/S3 variants are listed in the storage enum but not
+// wired yet. Cap is 25MB per file — base64 inflates ~33% so a 25MB
+// upload is ~33MB on the wire and in the row, which Postgres handles
+// without TOAST issues.
 
 import { supabase } from './supabase.js';
 import { uid } from './id.js';
 
-export const MAX_SIZE = 5 * 1024 * 1024;
+export const MAX_SIZE = 25 * 1024 * 1024;
 
 function rowToFile(r) {
   return {
