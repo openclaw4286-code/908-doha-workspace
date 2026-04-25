@@ -6,10 +6,10 @@
 
 :root {
   /* --- Color primitives (10-step scales) --- */
-  --grey-50:  #FAFAFA; --grey-100: #F2F2F2; --grey-200: #E5E5E5;
-  --grey-300: #CCCCCC; --grey-400: #999999; --grey-500: #737373;
-  --grey-600: #525252; --grey-700: #333333; --grey-800: #1A1A1A;
-  --grey-900: #000000;
+  --grey-50:  #FAF9F6; --grey-100: #F2F0EB; --grey-200: #E5E2DA;
+  --grey-300: #CECABE; --grey-400: #9A9588; --grey-500: #747067;
+  --grey-600: #53504A; --grey-700: #34312D; --grey-800: #1A1815;
+  --grey-900: #0A0907;
 
   --primary-50:  #E8F1FF; --primary-100: #CCE0FF; --primary-200: #99C1FF;
   --primary-300: #66A1FF; --primary-400: #3382FF; --primary-500: #0064FF;
