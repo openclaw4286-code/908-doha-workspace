@@ -35,13 +35,16 @@ export function ViewportProvider({ children }) {
 
   const value = {
     isMobile,
+    // Mobile is full read-write — capability flags stay in the API so
+    // future surface gates (e.g. unauthenticated viewer) can land in
+    // one place without touching consumers.
     canMutateTasks: true,
     canMutateNotes: true,
     canMutateFiles: true,
-    canMutateVault: !isMobile,
-    canMutateTeam: !isMobile,
-    canMutateSettings: !isMobile,
-    canDragTasks: !isMobile,
+    canMutateVault: true,
+    canMutateTeam: true,
+    canMutateSettings: true,
+    canDragTasks: true,
   };
 
   return (
