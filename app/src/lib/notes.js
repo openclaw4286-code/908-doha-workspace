@@ -1,12 +1,14 @@
-// Note CRUD backed by Supabase. The note body is stored as markdown
-// text (Velog-style). To stay compatible with the existing `blocks`
-// jsonb column, the body is persisted as a single record
-// `[{id, type:'md', text:<markdown>}]`. Legacy block arrays are
-// migrated to markdown on read.
+// Note CRUD backed by Supabase. The note body is sanitized HTML
+// rendered inside a contenteditable surface (single WYSIWYG view —
+// editing IS the preview). To stay compatible with the existing
+// `blocks` jsonb column the body is persisted as a single record
+// `[{id, type:'html', text:<html>}]`. Older formats (`md`, legacy
+// typed blocks) are migrated to HTML on read.
 
 import { supabase } from './supabase.js';
 import { uid } from './id.js';
-import { markdownToText } from './markdown.js';
+import { escapeHtml, htmlToText } from './htmlSanitize.js';
+import { markdownToHtml } from './markdown.js';
 
 export function emptyNote(overrides = {}) {
   return {
@@ -21,39 +23,39 @@ export function emptyNote(overrides = {}) {
   };
 }
 
-function legacyBlockToMd(b) {
-  const t = (b.text ?? '').replace(/\r\n?/g, '\n');
+function legacyBlockToHtml(b) {
+  const text = escapeHtml(b.text ?? '');
   switch (b.type) {
-    case 'h1': return `# ${t}\n\n`;
-    case 'h2': return `## ${t}\n\n`;
-    case 'h3': return `### ${t}\n\n`;
-    case 'heading': return `## ${t}\n\n`;
-    case 'bullet': return `- ${t}\n`;
-    case 'numbered': return `1. ${t}\n`;
-    case 'check': return `- [${b.checked ? 'x' : ' '}] ${t}\n`;
-    case 'quote': return `> ${t}\n\n`;
-    case 'divider': return `\n---\n\n`;
+    case 'h1': return `<h1>${text}</h1>`;
+    case 'h2': return `<h2>${text}</h2>`;
+    case 'h3': return `<h3>${text}</h3>`;
+    case 'heading': return `<h2>${text}</h2>`;
+    case 'bullet': return `<ul><li>${text}</li></ul>`;
+    case 'numbered': return `<ol><li>${text}</li></ol>`;
+    case 'check': return `<p>${b.checked ? '☑' : '☐'} ${text}</p>`;
+    case 'quote': return `<blockquote>${text}</blockquote>`;
+    case 'divider': return '<hr>';
     case 'text':
     default:
-      return t ? `${t}\n\n` : '\n';
+      return text ? `<p>${text}</p>` : '';
   }
 }
 
 function blocksToBody(blocks) {
   if (!Array.isArray(blocks) || blocks.length === 0) return '';
-  if (blocks.length === 1 && (blocks[0]?.type === 'md' || blocks[0]?.type === 'html')) {
-    return blocks[0].text ?? '';
+  if (blocks.length === 1) {
+    const b = blocks[0];
+    if (b?.type === 'html') return b.text ?? '';
+    if (b?.type === 'md') return markdownToHtml(b.text ?? '');
   }
   return blocks
     .filter((b) => b && typeof b === 'object')
-    .map(legacyBlockToMd)
-    .join('')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .map(legacyBlockToHtml)
+    .join('');
 }
 
 function bodyToBlocks(body) {
-  return [{ id: uid(), type: 'md', text: body ?? '' }];
+  return [{ id: uid(), type: 'html', text: body ?? '' }];
 }
 
 function rowToNote(r) {
@@ -110,16 +112,16 @@ export async function removeNote(id) {
 }
 
 export function snippet(note, max = 140) {
-  const text = markdownToText(note.body ?? '');
+  const text = htmlToText(note.body ?? '');
   if (!text) return '';
   return text.length > max ? text.slice(0, max - 1) + '…' : text;
 }
 
 export function noteHasContent(n) {
   if ((n.title ?? '').trim()) return true;
-  return markdownToText(n.body ?? '').length > 0;
+  return htmlToText(n.body ?? '').length > 0;
 }
 
 export function noteBodyText(n) {
-  return markdownToText(n.body ?? '');
+  return htmlToText(n.body ?? '');
 }

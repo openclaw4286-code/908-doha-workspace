@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Eye, Pencil, Pin, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Pin, Trash2, X } from 'lucide-react';
 import AutoTextarea from './AutoTextarea.jsx';
 import IconButton from './IconButton.jsx';
 import FormSelect from './FormSelect.jsx';
 import { noteHasContent } from '../lib/notes.js';
-import { markdownToHtml } from '../lib/markdown.js';
+import { sanitizeHtml, escapeHtml } from '../lib/htmlSanitize.js';
 import { useViewport } from '../contexts/ViewportContext.jsx';
 
 const TITLE_MAX = 100;
@@ -20,23 +20,21 @@ export default function NotePage({
   const [draft, setDraft] = useState(note);
   const [dirty, setDirty] = useState(false);
   const [tagInput, setTagInput] = useState('');
-  const [mobileView, setMobileView] = useState('edit'); // 'edit' | 'preview'
   const dirtyRef = useRef(false);
   const draftRef = useRef(note);
-  const { canMutateNotes, isMobile } = useViewport();
+  const { canMutateNotes } = useViewport();
   const readOnly = !canMutateNotes;
 
   useEffect(() => {
     setDraft(note);
     setDirty(false);
     setTagInput('');
-    setMobileView('edit');
     dirtyRef.current = false;
     draftRef.current = note;
   }, [note?.id]);
 
   useEffect(() => {
-    draftRef.current = draft;
+    draftRef.current = { ...draft, body: draftRef.current.body };
   }, [draft]);
   useEffect(() => {
     dirtyRef.current = dirty;
@@ -44,6 +42,12 @@ export default function NotePage({
 
   const mutate = (patch) => {
     setDraft((d) => ({ ...d, ...patch }));
+    setDirty(true);
+  };
+
+  const handleBodyChange = (html) => {
+    draftRef.current = { ...draftRef.current, body: html };
+    dirtyRef.current = true;
     setDirty(true);
   };
 
@@ -97,17 +101,9 @@ export default function NotePage({
     [folders],
   );
 
-  const previewHtml = useMemo(
-    () => markdownToHtml(draft.body ?? ''),
-    [draft.body],
-  );
-
-  const showEdit = !readOnly && (!isMobile || mobileView === 'edit');
-  const showPreview = readOnly || !isMobile || mobileView === 'preview';
-
   return (
     <div
-      className="mx-auto flex max-w-5xl flex-col gap-5 px-6 py-6"
+      className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6"
       style={{ animation: 'dsPageIn 260ms var(--ease-emphasis)' }}
     >
       <div className="flex items-center gap-2">
@@ -187,45 +183,16 @@ export default function NotePage({
         }}
       />
 
-      {!readOnly && isMobile && (
-        <div
-          className="flex w-fit items-center gap-1 rounded-md p-0.5"
-          style={{ background: 'var(--surface-layered)' }}
-        >
-          <ViewTab
-            label="편집"
-            icon={Pencil}
-            active={mobileView === 'edit'}
-            onClick={() => setMobileView('edit')}
-          />
-          <ViewTab
-            label="미리보기"
-            icon={Eye}
-            active={mobileView === 'preview'}
-            onClick={() => setMobileView('preview')}
-          />
-        </div>
-      )}
-
       <div
-        className={`grid gap-4 border-t pt-4 ${showEdit && showPreview && !isMobile ? 'md:grid-cols-2' : 'grid-cols-1'}`}
+        className="border-t pt-4"
         style={{ borderColor: 'var(--border-subtle)' }}
       >
-        {showEdit && (
-          <MarkdownEditor
-            value={draft.body ?? ''}
-            onChange={(v) => mutate({ body: v })}
-            readOnly={readOnly}
-          />
-        )}
-        {showPreview && (
-          <div
-            className="note-body min-h-[240px]"
-            data-placeholder={readOnly && !previewHtml ? '내용 없음' : ''}
-            // The renderer sanitizes the HTML before returning it.
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
-        )}
+        <BodyEditor
+          key={note?.id ?? 'new'}
+          initialHtml={note?.body ?? ''}
+          readOnly={readOnly}
+          onChange={handleBodyChange}
+        />
       </div>
 
       {!readOnly && (
@@ -233,13 +200,13 @@ export default function NotePage({
           className="t-caption px-1"
           style={{ color: 'var(--text-tertiary)' }}
         >
-          마크다운 지원: <kbd style={kbdStyle}>#</kbd> 제목 ·{' '}
-          <kbd style={kbdStyle}>**굵게**</kbd> ·{' '}
-          <kbd style={kbdStyle}>*기울임*</kbd> ·{' '}
-          <kbd style={kbdStyle}>`코드`</kbd> ·{' '}
-          <kbd style={kbdStyle}>```블록```</kbd> ·{' '}
-          <kbd style={kbdStyle}>- 목록</kbd> ·{' '}
-          <kbd style={kbdStyle}>{'> 인용'}</kbd>
+          입력 중 적용: <kbd style={kbdStyle}>#</kbd>{' '}
+          <kbd style={kbdStyle}>##</kbd> <kbd style={kbdStyle}>###</kbd>{' '}
+          <kbd style={kbdStyle}>-</kbd> <kbd style={kbdStyle}>1.</kbd>{' '}
+          <kbd style={kbdStyle}>{'>'}</kbd> + Space ·{' '}
+          <kbd style={kbdStyle}>```</kbd>+Enter 코드블록 ·{' '}
+          <kbd style={kbdStyle}>---</kbd>+Enter 구분선 ·{' '}
+          <kbd style={kbdStyle}>⌘B</kbd> 굵게 · <kbd style={kbdStyle}>⌘I</kbd> 기울임
         </div>
       )}
     </div>
@@ -255,73 +222,254 @@ const kbdStyle = {
   fontSize: 11,
 };
 
-function MarkdownEditor({ value, onChange, readOnly }) {
+// ---------------------------------------------------------------
+// BodyEditor — single contenteditable surface.
+//
+// React doesn't control the DOM here; we set innerHTML once on mount
+// and let the browser own selection/edits. onInput pushes the current
+// HTML up to the parent through a ref so re-renders never blow away
+// cursor position. Block-level markdown shortcuts trigger on Space
+// (#, ##, ###, -, *, 1., >) and Enter (```code```, ---). Paste from
+// Notion runs through the HTML sanitizer so bold/code/lists survive.
+// ---------------------------------------------------------------
+function BodyEditor({ initialHtml, readOnly, onChange }) {
   const ref = useRef(null);
 
-  // Auto-grow to fit content so the editor scrolls with the page like
-  // the surrounding form, instead of trapping scroll inside a fixed box.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.max(el.scrollHeight, 240)}px`;
-  }, [value]);
+    el.innerHTML = initialHtml || '';
+    try {
+      // Make Enter create <p> blocks instead of <div> on Chrome.
+      document.execCommand('defaultParagraphSeparator', false, 'p');
+    } catch {
+      /* ignore — Firefox uses <br> by default which we also tolerate */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Tab key inserts two spaces instead of moving focus.
+  const flush = () => {
+    if (ref.current) onChange(ref.current.innerHTML);
+  };
+
+  const handleInput = () => flush();
+
+  const handlePaste = (e) => {
+    if (readOnly) return;
+    e.preventDefault();
+    const cd = e.clipboardData;
+    const html = cd?.getData('text/html');
+    const text = cd?.getData('text/plain') ?? '';
+    const toInsert = html
+      ? sanitizeHtml(html)
+      : escapeHtml(text).replace(/\r?\n/g, '<br>');
+    insertHtmlAtCursor(toInsert);
+    flush();
+  };
+
   const handleKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const el = e.target;
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const next = value.slice(0, start) + '  ' + value.slice(end);
-      onChange(next);
-      requestAnimationFrame(() => {
-        el.selectionStart = el.selectionEnd = start + 2;
-      });
+    if (readOnly) return;
+    if (e.key === ' ' && handleSpaceShortcut(e, ref.current)) {
+      flush();
+    } else if (e.key === 'Enter' && !e.shiftKey && handleEnterShortcut(e, ref.current)) {
+      flush();
     }
   };
 
   return (
-    <textarea
+    <div
       ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={handleKeyDown}
-      readOnly={readOnly}
-      placeholder={'# 제목\n\n노션에서 복사한 내용을 그대로 붙여넣어도 **굵게**, `코드`, 목록이 그대로 유지됩니다.'}
+      className="note-body w-full outline-none"
+      contentEditable={!readOnly}
+      suppressContentEditableWarning
       spellCheck={false}
-      className="w-full resize-none bg-transparent outline-none"
+      onInput={handleInput}
+      onPaste={handlePaste}
+      onKeyDown={handleKeyDown}
+      data-placeholder={readOnly ? '' : '내용을 입력하세요. 노션에서 그대로 복사·붙여넣기 가능합니다.'}
       style={{
-        minHeight: 240,
-        fontFamily: 'var(--font-mono)',
-        fontSize: 14,
-        lineHeight: '22px',
+        fontSize: 16,
+        lineHeight: '26px',
         color: 'var(--text-primary)',
-        whiteSpace: 'pre-wrap',
-        overflow: 'hidden',
+        minHeight: 240,
       }}
     />
   );
 }
 
-function ViewTab({ label, icon: Icon, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="inline-flex items-center gap-1 rounded px-3 py-1 t-caption"
-      style={{
-        background: active ? 'var(--surface)' : 'transparent',
-        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-        boxShadow: active ? 'var(--elev-1)' : 'none',
-        fontWeight: active ? 600 : 500,
-      }}
-    >
-      <Icon size={14} strokeWidth={1.75} />
-      {label}
-    </button>
-  );
+// ---- selection / DOM helpers -----------------------------------
+
+function insertHtmlAtCursor(html) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  const frag = tpl.content;
+  const last = frag.lastChild;
+  range.insertNode(frag);
+  if (last) {
+    const r = document.createRange();
+    r.setStartAfter(last);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
 }
+
+const BLOCK_TAGS = new Set([
+  'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'LI', 'PRE',
+]);
+
+function findBlock(node, root) {
+  let cur = node;
+  while (cur && cur !== root) {
+    if (cur.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(cur.tagName)) return cur;
+    cur = cur.parentNode;
+  }
+  return null;
+}
+
+function getTextBeforeCursor(block, range) {
+  const r = range.cloneRange();
+  r.setStart(block, 0);
+  return r.toString();
+}
+
+function placeCursorAtStart(el) {
+  const range = document.createRange();
+  if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
+    range.setStart(el.firstChild, 0);
+  } else {
+    range.setStart(el, 0);
+  }
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// ---- markdown shortcut handlers --------------------------------
+
+const SPACE_RULES = [
+  { match: '###', tag: 'h3' },
+  { match: '##', tag: 'h2' },
+  { match: '#', tag: 'h1' },
+  { match: '-', tag: 'ul' },
+  { match: '*', tag: 'ul' },
+  { match: '1.', tag: 'ol' },
+  { match: '>', tag: 'blockquote' },
+];
+
+function handleSpaceShortcut(e, root) {
+  if (!root) return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  const block = findBlock(range.startContainer, root);
+  if (!block) return false;
+  // Only transform from a plain paragraph or div — never from inside an
+  // existing heading/list/quote/code block.
+  if (block.tagName !== 'P' && block.tagName !== 'DIV') return false;
+  const before = getTextBeforeCursor(block, range);
+  for (const rule of SPACE_RULES) {
+    if (before === rule.match) {
+      e.preventDefault();
+      transformBlockTo(block, rule.tag);
+      return true;
+    }
+  }
+  return false;
+}
+
+function transformBlockTo(block, tag) {
+  // Strip the leading marker characters from the block; whatever
+  // follows the cursor (typically nothing, since shortcut fires on the
+  // initial space) becomes the new block's content.
+  const tail = block.textContent.replace(/^(#{1,3}|[-*]|1\.|>)\s*/, '');
+  if (tag === 'ul' || tag === 'ol') {
+    const list = document.createElement(tag);
+    const li = document.createElement('li');
+    li.textContent = tail;
+    if (!tail) li.appendChild(document.createElement('br'));
+    list.appendChild(li);
+    block.replaceWith(list);
+    placeCursorAtStart(li);
+  } else {
+    const next = document.createElement(tag);
+    next.textContent = tail;
+    if (!tail) next.appendChild(document.createElement('br'));
+    block.replaceWith(next);
+    placeCursorAtStart(next);
+  }
+}
+
+function handleEnterShortcut(e, root) {
+  if (!root) return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  const block = findBlock(range.startContainer, root);
+  if (!block) return false;
+
+  const text = block.textContent;
+
+  // ``` on its own → start a code block
+  if (block.tagName === 'P' && /^```\w*$/.test(text.trim())) {
+    e.preventDefault();
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.appendChild(document.createElement('br'));
+    pre.appendChild(code);
+    block.replaceWith(pre);
+    placeCursorAtStart(code);
+    return true;
+  }
+
+  // --- on its own → horizontal rule, then a fresh paragraph below
+  if (block.tagName === 'P' && /^-{3,}$/.test(text.trim())) {
+    e.preventDefault();
+    const hr = document.createElement('hr');
+    const p = document.createElement('p');
+    p.appendChild(document.createElement('br'));
+    block.replaceWith(hr);
+    hr.after(p);
+    placeCursorAtStart(p);
+    return true;
+  }
+
+  // Enter at end of an empty heading/quote → demote to paragraph
+  const tag = block.tagName;
+  const isHeading = tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' || tag === 'H5' || tag === 'H6';
+  if ((isHeading || tag === 'BLOCKQUOTE') && text.trim() === '') {
+    e.preventDefault();
+    const p = document.createElement('p');
+    p.appendChild(document.createElement('br'));
+    block.replaceWith(p);
+    placeCursorAtStart(p);
+    return true;
+  }
+
+  // Empty <li> at the end of a list → exit the list
+  if (tag === 'LI' && text === '') {
+    const list = block.parentElement;
+    if (list && (list.tagName === 'UL' || list.tagName === 'OL')) {
+      e.preventDefault();
+      const p = document.createElement('p');
+      p.appendChild(document.createElement('br'));
+      list.after(p);
+      block.remove();
+      if (!list.children.length) list.remove();
+      placeCursorAtStart(p);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ---- tag editor ------------------------------------------------
 
 function TagEditor({ tags, value, onInput, onAdd, onRemove }) {
   return (
