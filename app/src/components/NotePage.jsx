@@ -294,6 +294,31 @@ function BodyEditor({ editorRef, initialHtml, readOnly, onChange }) {
 // manually since the standard commands don't cover them.
 // ---------------------------------------------------------------
 function Toolbar({ editorRef, onChanged }) {
+  const [active, setActive] = useState({});
+
+  const refresh = () => {
+    const root = editorRef.current;
+    if (!root) return;
+    setActive(detectActiveFormats(root));
+  };
+
+  // Track selection changes globally so the toolbar reflects the
+  // formatting at the cursor's current position. Filter to selections
+  // anchored inside our editor to avoid stomping state on unrelated
+  // selections elsewhere on the page.
+  useEffect(() => {
+    const handler = () => {
+      const root = editorRef.current;
+      if (!root) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      if (root.contains(sel.anchorNode)) refresh();
+    };
+    document.addEventListener('selectionchange', handler);
+    return () => document.removeEventListener('selectionchange', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const focus = () => editorRef.current?.focus();
 
   const exec = (cmd, value) => {
@@ -304,6 +329,7 @@ function Toolbar({ editorRef, onChanged }) {
       /* ignore — execCommand is best-effort here */
     }
     onChanged();
+    refresh();
   };
 
   const setBlock = (tag) => exec('formatBlock', tag.toUpperCase());
@@ -325,6 +351,7 @@ function Toolbar({ editorRef, onChanged }) {
     sel.removeAllRanges();
     sel.addRange(r);
     onChanged();
+    refresh();
   };
 
   const insertCodeBlock = () => {
@@ -343,6 +370,7 @@ function Toolbar({ editorRef, onChanged }) {
     block.replaceWith(pre);
     placeCursorAtStart(code);
     onChanged();
+    refresh();
   };
 
   const insertLink = () => {
@@ -361,6 +389,7 @@ function Toolbar({ editorRef, onChanged }) {
       a.rel = 'noreferrer noopener';
       insertNodeAtCursor(a);
       onChanged();
+      refresh();
     }
   };
 
@@ -379,42 +408,47 @@ function Toolbar({ editorRef, onChanged }) {
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <ToolBtn icon={Heading1} label="제목 1" onClick={() => setBlock('h1')} />
-      <ToolBtn icon={Heading2} label="제목 2" onClick={() => setBlock('h2')} />
-      <ToolBtn icon={Heading3} label="제목 3" onClick={() => setBlock('h3')} />
+      <ToolBtn icon={Heading1} label="제목 1" active={active.h1} onClick={() => setBlock('h1')} />
+      <ToolBtn icon={Heading2} label="제목 2" active={active.h2} onClick={() => setBlock('h2')} />
+      <ToolBtn icon={Heading3} label="제목 3" active={active.h3} onClick={() => setBlock('h3')} />
       <Sep />
-      <ToolBtn icon={Bold} label="굵게 (⌘B)" onClick={() => exec('bold')} />
-      <ToolBtn icon={Italic} label="기울임 (⌘I)" onClick={() => exec('italic')} />
-      <ToolBtn icon={Strikethrough} label="취소선" onClick={() => exec('strikeThrough')} />
-      <ToolBtn icon={Code} label="인라인 코드" onClick={() => wrapInline('code')} />
+      <ToolBtn icon={Bold} label="굵게 (⌘B)" active={active.bold} onClick={() => exec('bold')} />
+      <ToolBtn icon={Italic} label="기울임 (⌘I)" active={active.italic} onClick={() => exec('italic')} />
+      <ToolBtn icon={Strikethrough} label="취소선" active={active.strike} onClick={() => exec('strikeThrough')} />
+      <ToolBtn icon={Code} label="인라인 코드" active={active.inlineCode} onClick={() => wrapInline('code')} />
       <Sep />
-      <ToolBtn icon={List} label="글머리 목록" onClick={() => exec('insertUnorderedList')} />
-      <ToolBtn icon={ListOrdered} label="번호 목록" onClick={() => exec('insertOrderedList')} />
-      <ToolBtn icon={Quote} label="인용" onClick={() => setBlock('blockquote')} />
+      <ToolBtn icon={List} label="글머리 목록" active={active.ul} onClick={() => exec('insertUnorderedList')} />
+      <ToolBtn icon={ListOrdered} label="번호 목록" active={active.ol} onClick={() => exec('insertOrderedList')} />
+      <ToolBtn icon={Quote} label="인용" active={active.quote} onClick={() => setBlock('blockquote')} />
       <Sep />
-      <ToolBtn icon={Code2} label="코드 블록" onClick={insertCodeBlock} />
-      <ToolBtn icon={LinkIcon} label="링크" onClick={insertLink} />
+      <ToolBtn icon={Code2} label="코드 블록" active={active.codeBlock} onClick={insertCodeBlock} />
+      <ToolBtn icon={LinkIcon} label="링크" active={active.link} onClick={insertLink} />
       <ToolBtn icon={Minus} label="구분선" onClick={insertHr} />
     </div>
   );
 }
 
-function ToolBtn({ icon: Icon, label, onClick }) {
+function ToolBtn({ icon: Icon, label, onClick, active }) {
+  const [hover, setHover] = useState(false);
+  const highlighted = hover || active;
+  const color = active
+    ? 'var(--accent-brand)'
+    : hover
+    ? 'var(--text-primary)'
+    : 'var(--text-secondary)';
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       title={label}
       aria-label={label}
+      aria-pressed={!!active}
       className="flex h-8 w-8 items-center justify-center rounded transition-colors"
-      style={{ color: 'var(--text-secondary)' }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--surface-layered)';
-        e.currentTarget.style.color = 'var(--text-primary)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent';
-        e.currentTarget.style.color = 'var(--text-secondary)';
+      style={{
+        background: highlighted ? 'var(--surface-layered)' : 'transparent',
+        color,
       }}
     >
       <Icon size={16} strokeWidth={1.75} />
@@ -476,6 +510,47 @@ function findBlock(node, root) {
     cur = cur.parentNode;
   }
   return null;
+}
+
+// Inspect the current selection and report which formatting tags are
+// applied at the cursor. Used by the toolbar to highlight active
+// buttons. Bold/italic/strike use queryCommandState (works across
+// browsers); block-level (heading/list/quote/code) and link/inline
+// code are determined by walking up the ancestor chain.
+function detectActiveFormats(root) {
+  const sel = window.getSelection();
+  const out = {};
+  if (!sel || sel.rangeCount === 0) return out;
+  const node = sel.anchorNode;
+  if (!node || !root.contains(node)) return out;
+
+  try {
+    out.bold = document.queryCommandState('bold');
+    out.italic = document.queryCommandState('italic');
+    out.strike = document.queryCommandState('strikeThrough');
+  } catch {
+    /* ignore — query is best-effort */
+  }
+
+  let cur = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+  let insidePre = false;
+  while (cur && cur !== root) {
+    const tag = cur.tagName;
+    if (tag === 'PRE') {
+      out.codeBlock = true;
+      insidePre = true;
+    } else if (tag === 'CODE' && !insidePre) {
+      out.inlineCode = true;
+    } else if (tag === 'H1') out.h1 = true;
+    else if (tag === 'H2') out.h2 = true;
+    else if (tag === 'H3') out.h3 = true;
+    else if (tag === 'BLOCKQUOTE') out.quote = true;
+    else if (tag === 'UL') out.ul = true;
+    else if (tag === 'OL') out.ol = true;
+    else if (tag === 'A') out.link = true;
+    cur = cur.parentNode;
+  }
+  return out;
 }
 
 function getTextBeforeCursor(block, range) {
@@ -652,7 +727,7 @@ function TagEditor({ tags, value, onInput, onAdd, onRemove }) {
             onRemove(tags[tags.length - 1]);
           }
         }}
-        placeholder={tags.length ? '태그 추가' : '#태그를 입력하고 Enter'}
+        placeholder={tags.length ? '태그 추가' : '#태그'}
         className="min-w-[120px] flex-1 bg-transparent outline-none t-caption"
         style={{ color: 'var(--text-primary)' }}
       />
