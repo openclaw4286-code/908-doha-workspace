@@ -8,11 +8,9 @@ import FormInput from './FormInput.jsx';
 import FormTextarea from './FormTextarea.jsx';
 import FormPasswordInput from './FormPasswordInput.jsx';
 import { generatePassword } from '../lib/vault.js';
-import { useViewport } from '../contexts/ViewportContext.jsx';
 
-export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClose }) {
+export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClose, readOnly = false }) {
   const [draft, setDraft] = useState(entry);
-  const { readOnly } = useViewport();
 
   useEffect(() => {
     if (open) setDraft(entry);

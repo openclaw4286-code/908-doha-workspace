@@ -1,8 +1,23 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
-const ViewportContext = createContext({ isMobile: false, readOnly: false });
-
 const MOBILE_QUERY = '(max-width: 767px)';
+
+// Per-area mutation gates. Mobile keeps quick-capture surfaces
+// (tasks / notes / files) but blocks admin-y ones (vault / team /
+// settings). `canDragTasks` is its own gate because touch drag is
+// painful even when mutation is allowed.
+const DEFAULTS = {
+  isMobile: false,
+  canMutateTasks: true,
+  canMutateNotes: true,
+  canMutateFiles: true,
+  canMutateVault: true,
+  canMutateTeam: true,
+  canMutateSettings: true,
+  canDragTasks: true,
+};
+
+const ViewportContext = createContext(DEFAULTS);
 
 export function ViewportProvider({ children }) {
   const [isMobile, setIsMobile] = useState(() =>
@@ -18,11 +33,19 @@ export function ViewportProvider({ children }) {
     return () => m.removeEventListener('change', handler);
   }, []);
 
-  // Mobile is read-only by design — users can browse but not mutate.
+  const value = {
+    isMobile,
+    canMutateTasks: true,
+    canMutateNotes: true,
+    canMutateFiles: true,
+    canMutateVault: !isMobile,
+    canMutateTeam: !isMobile,
+    canMutateSettings: !isMobile,
+    canDragTasks: !isMobile,
+  };
+
   return (
-    <ViewportContext.Provider value={{ isMobile, readOnly: isMobile }}>
-      {children}
-    </ViewportContext.Provider>
+    <ViewportContext.Provider value={value}>{children}</ViewportContext.Provider>
   );
 }
 

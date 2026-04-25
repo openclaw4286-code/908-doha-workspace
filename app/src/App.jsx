@@ -73,7 +73,7 @@ const BOTTOM_TABS = [
 
 function Shell() {
   const { currentUser, logout } = useAuth();
-  const { isMobile, readOnly } = useViewport();
+  const { isMobile, canMutateTasks, canMutateNotes } = useViewport();
   const [active, setActive] = useState('board');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isBottom = BOTTOM_TABS.some((t) => t.id === active);
@@ -218,7 +218,8 @@ function Shell() {
                 variant="clear"
                 ariaLabel="Search"
               />
-              {!readOnly && (active === 'board' || active === 'notes') && (
+              {((active === 'board' && canMutateTasks) ||
+                (active === 'notes' && canMutateNotes)) && (
                 <Button
                   variant="primary"
                   size="md"

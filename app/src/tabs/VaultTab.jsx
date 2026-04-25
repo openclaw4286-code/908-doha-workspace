@@ -14,7 +14,8 @@ import { emptyEntry, fetchVaultRow, initVault, saveEntries, unlockVault } from '
 export default function VaultTab() {
   const { currentUser } = useAuth();
   const toast = useToast();
-  const { readOnly } = useViewport();
+  const { canMutateVault } = useViewport();
+  const readOnly = !canMutateVault;
 
   const [status, setStatus] = useState('checking'); // checking | uninitialized | locked | unlocked
   const [master, setMaster] = useState('');
@@ -271,6 +272,7 @@ export default function VaultTab() {
         onSave={save}
         onDelete={remove}
         onClose={() => setEditing(null)}
+        readOnly={readOnly}
       />
     </div>
   );

@@ -7,11 +7,9 @@ import FormInput from './FormInput.jsx';
 import FormTextarea from './FormTextarea.jsx';
 import ColorPicker from './ColorPicker.jsx';
 import { MEMBER_COLORS } from '../lib/members.js';
-import { useViewport } from '../contexts/ViewportContext.jsx';
 
-export default function MemberEditor({ open, member, onSave, onDelete, onClose, isSelf }) {
+export default function MemberEditor({ open, member, onSave, onDelete, onClose, isSelf, readOnly = false }) {
   const isNew = !member?.id;
-  const { readOnly } = useViewport();
   const [name, setName] = useState('');
   const [color, setColor] = useState(MEMBER_COLORS[0]);
   const [role, setRole] = useState('');

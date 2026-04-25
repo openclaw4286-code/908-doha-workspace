@@ -45,7 +45,8 @@ export default function NotePage({
   const blockRefs = useRef({});
   const dirtyRef = useRef(false);
   const draftRef = useRef(note);
-  const { readOnly } = useViewport();
+  const { canMutateNotes } = useViewport();
+  const readOnly = !canMutateNotes;
 
   useEffect(() => {
     setDraft(note);

@@ -23,7 +23,8 @@ import {
 export default function TeamTab() {
   const { members, currentUser, refreshMembers } = useAuth();
   const toast = useToast();
-  const { readOnly } = useViewport();
+  const { canMutateTeam } = useViewport();
+  const readOnly = !canMutateTeam;
 
   const [logs, setLogs] = useState([]);
   const [openLog, setOpenLog] = useState(null);
@@ -167,6 +168,7 @@ export default function TeamTab() {
         onSave={saveProfile}
         onDelete={null}
         onClose={() => setEditing(null)}
+        readOnly={readOnly}
       />
     </div>
   );

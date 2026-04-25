@@ -15,7 +15,7 @@ const AVATAR_STACK_LIMIT = 3;
 export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, dragging }) {
   const due = dueMeta(task.dueDate, task.status);
   const { members } = useAuth();
-  const { readOnly } = useViewport();
+  const { canDragTasks } = useViewport();
   const assigneeMembers = (task.assignees ?? [])
     .map((id) => members.find((m) => m.id === id))
     .filter(Boolean);
@@ -24,15 +24,15 @@ export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, draggin
 
   return (
     <article
-      draggable={!readOnly}
+      draggable={canDragTasks}
       onDragStart={
-        readOnly
-          ? undefined
-          : (e) => {
+        canDragTasks
+          ? (e) => {
               e.dataTransfer.setData('text/plain', task.id);
               e.dataTransfer.effectAllowed = 'move';
               onDragStart?.(task.id);
             }
+          : undefined
       }
       onDragEnd={() => onDragEnd?.()}
       onClick={() => onOpen?.(task)}

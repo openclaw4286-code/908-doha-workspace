@@ -27,7 +27,8 @@ function iconFor(mime) {
 
 export default function FileCard({ file, onRemove }) {
   const { members } = useAuth();
-  const { readOnly } = useViewport();
+  const { canMutateFiles } = useViewport();
+  const readOnly = !canMutateFiles;
   const uploader = members.find((m) => m.id === file.uploaderId);
   const isImage = file.mimeType?.startsWith('image/');
   const Icon = iconFor(file.mimeType);

@@ -21,7 +21,8 @@ const PRIORITY_OPTIONS = PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABE
 export default function TaskEditor({ open, task, onSave, onDelete, onClose }) {
   const [draft, setDraft] = useState(task);
   const { members } = useAuth();
-  const { readOnly } = useViewport();
+  const { canMutateTasks } = useViewport();
+  const readOnly = !canMutateTasks;
 
   useEffect(() => {
     if (open) setDraft(task);

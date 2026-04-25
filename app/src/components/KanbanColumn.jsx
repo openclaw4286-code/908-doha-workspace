@@ -15,32 +15,32 @@ export default function KanbanColumn({
   onQuickAdd,
 }) {
   const [hover, setHover] = useState(false);
-  const { readOnly } = useViewport();
+  const { canMutateTasks, canDragTasks } = useViewport();
 
   return (
     <section
       onDragOver={
-        readOnly
-          ? undefined
-          : (e) => {
+        canDragTasks
+          ? (e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
               if (!hover) setHover(true);
             }
+          : undefined
       }
       onDragLeave={(e) => {
         if (e.currentTarget.contains(e.relatedTarget)) return;
         setHover(false);
       }}
       onDrop={
-        readOnly
-          ? undefined
-          : (e) => {
+        canDragTasks
+          ? (e) => {
               e.preventDefault();
               setHover(false);
               const id = e.dataTransfer.getData('text/plain');
               if (id) onDropTask?.(id, status);
             }
+          : undefined
       }
       className="flex min-h-[400px] w-[280px] shrink-0 flex-col gap-2 rounded-xl p-3"
       style={{
@@ -74,7 +74,7 @@ export default function KanbanColumn({
         ))}
       </div>
 
-      {!readOnly && (
+      {canMutateTasks && (
         <button
           onClick={() => onQuickAdd?.(status)}
           className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-md t-label"

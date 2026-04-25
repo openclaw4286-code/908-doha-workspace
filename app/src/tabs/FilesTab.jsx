@@ -11,7 +11,8 @@ import { formatBytes, listFiles, removeFile, uploadFile } from '../lib/files.js'
 export default function FilesTab() {
   const { currentUser } = useAuth();
   const toast = useToast();
-  const { readOnly } = useViewport();
+  const { canMutateFiles } = useViewport();
+  const readOnly = !canMutateFiles;
   const [files, setFiles] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [uploading, setUploading] = useState(0);

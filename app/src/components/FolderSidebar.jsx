@@ -24,7 +24,8 @@ export default function FolderSidebar() {
     removeFolder,
     setOpenNote,
   } = useNotes();
-  const { readOnly } = useViewport();
+  const { canMutateNotes } = useViewport();
+  const readOnly = !canMutateNotes;
 
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState('');

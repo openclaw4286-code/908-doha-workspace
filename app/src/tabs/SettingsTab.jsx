@@ -13,7 +13,8 @@ import VaultPasswordModal from '../components/VaultPasswordModal.jsx';
 export default function SettingsTab() {
   const { members, currentUser, refreshMembers } = useAuth();
   const toast = useToast();
-  const { readOnly } = useViewport();
+  const { canMutateSettings } = useViewport();
+  const readOnly = !canMutateSettings;
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
   const [vaultExists, setVaultExists] = useState(false);
@@ -183,6 +184,7 @@ export default function SettingsTab() {
         onSave={save}
         onDelete={remove}
         onClose={() => setEditing(null)}
+        readOnly={readOnly}
       />
 
       <VaultPasswordModal
