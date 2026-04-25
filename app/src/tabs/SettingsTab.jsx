@@ -1,14 +1,44 @@
-import { useState } from 'react';
-import { Plus, KeyRound, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, KeyRound, ChevronRight, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useToast } from '../contexts/ToastContext.jsx';
 import { createMember, updateMember, deleteMember } from '../lib/members.js';
+import { changeMasterPassword, fetchVaultRow } from '../lib/vault.js';
 import MemberAvatar from '../components/MemberAvatar.jsx';
 import MemberEditor from '../components/MemberEditor.jsx';
+import Button from '../components/Button.jsx';
+import VaultPasswordModal from '../components/VaultPasswordModal.jsx';
 
 export default function SettingsTab() {
   const { members, currentUser, refreshMembers } = useAuth();
+  const toast = useToast();
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
+  const [vaultExists, setVaultExists] = useState(false);
+  const [vaultModal, setVaultModal] = useState(false);
+  const [vaultBusy, setVaultBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const row = await fetchVaultRow();
+        setVaultExists(!!row);
+      } catch {
+        setVaultExists(false);
+      }
+    })();
+  }, []);
+
+  const submitVaultChange = async (current, next) => {
+    setVaultBusy(true);
+    try {
+      await changeMasterPassword(current, next, currentUser?.id ?? null);
+      setVaultModal(false);
+      toast.success('Vault 비밀번호를 변경했어요');
+    } finally {
+      setVaultBusy(false);
+    }
+  };
 
   const save = async (input) => {
     try {
@@ -106,6 +136,41 @@ export default function SettingsTab() {
         </div>
       </section>
 
+      <section className="mb-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="t-heading1">Vault</h2>
+        </div>
+        <div
+          className="flex items-center gap-3 rounded-xl border p-4"
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface)' }}
+        >
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: 'var(--accent-brand-soft)', color: 'var(--accent-brand)' }}
+          >
+            <Lock size={18} strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="t-body2" style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+              마스터 비밀번호
+            </div>
+            <div className="t-caption" style={{ color: 'var(--text-tertiary)' }}>
+              {vaultExists
+                ? '보관함을 여는 단일 비밀번호. 변경 시 모든 항목이 새 키로 다시 암호화됩니다.'
+                : '아직 보관함이 만들어지지 않았어요. Vault 탭에서 처음 비밀번호를 설정하세요.'}
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="md"
+            disabled={!vaultExists}
+            onClick={() => setVaultModal(true)}
+          >
+            변경
+          </Button>
+        </div>
+      </section>
+
       <MemberEditor
         open={!!editing}
         member={editing}
@@ -113,6 +178,13 @@ export default function SettingsTab() {
         onSave={save}
         onDelete={remove}
         onClose={() => setEditing(null)}
+      />
+
+      <VaultPasswordModal
+        open={vaultModal}
+        busy={vaultBusy}
+        onSubmit={submitVaultChange}
+        onClose={() => setVaultModal(false)}
       />
     </div>
   );
