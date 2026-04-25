@@ -334,22 +334,30 @@ function Toolbar({ editorRef, onChanged }) {
 
   const setBlock = (tag) => exec('formatBlock', tag.toUpperCase());
 
-  const wrapInline = (tag) => {
+  // Toggle inline <code> on the current selection. If the cursor is
+  // already inside an inline <code> (but not a <pre><code>), unwrap
+  // it; otherwise wrap the selection. Both branches go through
+  // execCommand('insertHTML') so the browser's native undo stack
+  // tracks them.
+  const toggleInlineCode = () => {
     focus();
     const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    if (!sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
-    const wrapper = document.createElement(tag);
-    try {
-      range.surroundContents(wrapper);
-    } catch {
-      wrapper.appendChild(range.extractContents());
-      range.insertNode(wrapper);
+    const codeEl = findInlineCodeAncestor(range.startContainer, editorRef.current);
+
+    if (codeEl) {
+      const inner = codeEl.innerHTML;
+      const r = document.createRange();
+      r.selectNode(codeEl);
+      sel.removeAllRanges();
+      sel.addRange(r);
+      document.execCommand('insertHTML', false, inner);
+    } else if (!sel.isCollapsed) {
+      const tmp = document.createElement('div');
+      tmp.appendChild(range.cloneContents());
+      document.execCommand('insertHTML', false, '<code>' + tmp.innerHTML + '</code>');
     }
-    const r = document.createRange();
-    r.selectNodeContents(wrapper);
-    sel.removeAllRanges();
-    sel.addRange(r);
     onChanged();
     refresh();
   };
@@ -362,13 +370,12 @@ function Toolbar({ editorRef, onChanged }) {
     const block = findBlock(sel.getRangeAt(0).startContainer, root);
     if (!block || block.tagName === 'PRE') return;
     const text = block.textContent ?? '';
-    const pre = document.createElement('pre');
-    const code = document.createElement('code');
-    if (text) code.textContent = text;
-    else code.appendChild(document.createElement('br'));
-    pre.appendChild(code);
-    block.replaceWith(pre);
-    placeCursorAtStart(code);
+    const r = document.createRange();
+    r.selectNode(block);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    const inner = text ? escapeHtml(text) : '<br>';
+    document.execCommand('insertHTML', false, '<pre><code>' + inner + '</code></pre>');
     onChanged();
     refresh();
   };
@@ -382,12 +389,12 @@ function Toolbar({ editorRef, onChanged }) {
     if (hadSelection) {
       exec('createLink', url);
     } else {
-      const a = document.createElement('a');
-      a.href = url;
-      a.textContent = url;
-      a.target = '_blank';
-      a.rel = 'noreferrer noopener';
-      insertNodeAtCursor(a);
+      const escapedUrl = escapeHtml(url);
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<a href="${escapedUrl}" target="_blank" rel="noreferrer noopener">${escapedUrl}</a>`,
+      );
       onChanged();
       refresh();
     }
@@ -415,7 +422,7 @@ function Toolbar({ editorRef, onChanged }) {
       <ToolBtn icon={Bold} label="굵게 (⌘B)" active={active.bold} onClick={() => exec('bold')} />
       <ToolBtn icon={Italic} label="기울임 (⌘I)" active={active.italic} onClick={() => exec('italic')} />
       <ToolBtn icon={Strikethrough} label="취소선" active={active.strike} onClick={() => exec('strikeThrough')} />
-      <ToolBtn icon={Code} label="인라인 코드" active={active.inlineCode} onClick={() => wrapInline('code')} />
+      <ToolBtn icon={Code} label="인라인 코드" active={active.inlineCode} onClick={toggleInlineCode} />
       <Sep />
       <ToolBtn icon={List} label="글머리 목록" active={active.ul} onClick={() => exec('insertUnorderedList')} />
       <ToolBtn icon={ListOrdered} label="번호 목록" active={active.ol} onClick={() => exec('insertOrderedList')} />
@@ -507,6 +514,24 @@ function findBlock(node, root) {
   let cur = node;
   while (cur && cur !== root) {
     if (cur.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(cur.tagName)) return cur;
+    cur = cur.parentNode;
+  }
+  return null;
+}
+
+// Walk up looking for an inline <code>. Skips <code> nested inside
+// <pre> (those are code blocks, not inline code).
+function findInlineCodeAncestor(node, root) {
+  let cur = node && node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+  while (cur && cur !== root) {
+    if (cur.nodeType === Node.ELEMENT_NODE && cur.tagName === 'CODE') {
+      let p = cur.parentNode;
+      while (p && p !== root) {
+        if (p.nodeType === Node.ELEMENT_NODE && p.tagName === 'PRE') return null;
+        p = p.parentNode;
+      }
+      return cur;
+    }
     cur = cur.parentNode;
   }
   return null;
@@ -608,23 +633,39 @@ function handleSpaceShortcut(e, root) {
 function transformBlockTo(block, tag) {
   // Strip the leading marker characters from the block; whatever
   // follows the cursor (typically nothing, since shortcut fires on the
-  // initial space) becomes the new block's content.
+  // initial space) becomes the new block's content. Routed through
+  // execCommand('insertHTML') so the browser's undo stack tracks the
+  // transform (Cmd/Ctrl+Z reverts both the marker stripping and the
+  // block tag swap in one step).
   const tail = block.textContent.replace(/^(#{1,3}|[-*]|1\.|>)\s*/, '');
+  const escaped = escapeHtmlInline(tail);
+  const inner = escaped || '<br>';
+  let html;
   if (tag === 'ul' || tag === 'ol') {
-    const list = document.createElement(tag);
-    const li = document.createElement('li');
-    li.textContent = tail;
-    if (!tail) li.appendChild(document.createElement('br'));
-    list.appendChild(li);
-    block.replaceWith(list);
-    placeCursorAtStart(li);
+    html = `<${tag}><li>${inner}</li></${tag}>`;
   } else {
-    const next = document.createElement(tag);
-    next.textContent = tail;
-    if (!tail) next.appendChild(document.createElement('br'));
-    block.replaceWith(next);
-    placeCursorAtStart(next);
+    html = `<${tag}>${inner}</${tag}>`;
   }
+  selectNode(block);
+  document.execCommand('insertHTML', false, html);
+}
+
+function selectNode(node) {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const r = document.createRange();
+  r.selectNode(node);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
+function escapeHtmlInline(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function handleEnterShortcut(e, root) {
@@ -640,24 +681,16 @@ function handleEnterShortcut(e, root) {
   // ``` on its own → start a code block
   if (block.tagName === 'P' && /^```\w*$/.test(text.trim())) {
     e.preventDefault();
-    const pre = document.createElement('pre');
-    const code = document.createElement('code');
-    code.appendChild(document.createElement('br'));
-    pre.appendChild(code);
-    block.replaceWith(pre);
-    placeCursorAtStart(code);
+    selectNode(block);
+    document.execCommand('insertHTML', false, '<pre><code><br></code></pre>');
     return true;
   }
 
   // --- on its own → horizontal rule, then a fresh paragraph below
   if (block.tagName === 'P' && /^-{3,}$/.test(text.trim())) {
     e.preventDefault();
-    const hr = document.createElement('hr');
-    const p = document.createElement('p');
-    p.appendChild(document.createElement('br'));
-    block.replaceWith(hr);
-    hr.after(p);
-    placeCursorAtStart(p);
+    selectNode(block);
+    document.execCommand('insertHTML', false, '<hr><p><br></p>');
     return true;
   }
 
@@ -666,10 +699,8 @@ function handleEnterShortcut(e, root) {
   const isHeading = tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' || tag === 'H5' || tag === 'H6';
   if ((isHeading || tag === 'BLOCKQUOTE') && text.trim() === '') {
     e.preventDefault();
-    const p = document.createElement('p');
-    p.appendChild(document.createElement('br'));
-    block.replaceWith(p);
-    placeCursorAtStart(p);
+    selectNode(block);
+    document.execCommand('insertHTML', false, '<p><br></p>');
     return true;
   }
 
@@ -678,12 +709,22 @@ function handleEnterShortcut(e, root) {
     const list = block.parentElement;
     if (list && (list.tagName === 'UL' || list.tagName === 'OL')) {
       e.preventDefault();
-      const p = document.createElement('p');
-      p.appendChild(document.createElement('br'));
-      list.after(p);
+      // Drop the empty <li>; if the list becomes empty, drop the list
+      // too. Both via execCommand so Ctrl+Z restores the list state.
       block.remove();
-      if (!list.children.length) list.remove();
-      placeCursorAtStart(p);
+      if (!list.children.length) {
+        selectNode(list);
+        document.execCommand('insertHTML', false, '<p><br></p>');
+      } else {
+        // place a paragraph after the list
+        const r = document.createRange();
+        r.setStartAfter(list);
+        r.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+        document.execCommand('insertHTML', false, '<p><br></p>');
+      }
       return true;
     }
   }
