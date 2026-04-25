@@ -63,3 +63,16 @@
   from { opacity: 0; transform: translateX(10px) }
   to   { opacity: 1; transform: translateX(0) }
 }
+
+/* ------------------------------------------------------------------
+   iOS Safari auto-zooms into any input whose computed font-size is
+   under 16px on focus. The DS sets inputs at 15px which trips that
+   behavior every time on phones — bump just the rendered font on
+   sub-tablet widths so the zoom doesn't fire. !important is needed
+   because the form primitives set font-size via inline style.
+   ------------------------------------------------------------------ */
+@media (max-width: 767px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
