@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Pin, Trash2, X } from 'lucide-react';
+import {
+  ArrowLeft, Bold, Code, Code2, Heading1, Heading2, Heading3,
+  Italic, Link as LinkIcon, List, ListOrdered, Minus, Pin,
+  Quote, Strikethrough, Trash2, X,
+} from 'lucide-react';
 import AutoTextarea from './AutoTextarea.jsx';
 import IconButton from './IconButton.jsx';
 import FormSelect from './FormSelect.jsx';
@@ -22,6 +26,7 @@ export default function NotePage({
   const [tagInput, setTagInput] = useState('');
   const dirtyRef = useRef(false);
   const draftRef = useRef(note);
+  const bodyRef = useRef(null);
   const { canMutateNotes } = useViewport();
   const readOnly = !canMutateNotes;
 
@@ -49,6 +54,10 @@ export default function NotePage({
     draftRef.current = { ...draftRef.current, body: html };
     dirtyRef.current = true;
     setDirty(true);
+  };
+
+  const flushBodyFromDom = () => {
+    if (bodyRef.current) handleBodyChange(bodyRef.current.innerHTML);
   };
 
   // ---- tags ----
@@ -184,43 +193,23 @@ export default function NotePage({
       />
 
       <div
-        className="border-t pt-4"
+        className="border-t pt-2"
         style={{ borderColor: 'var(--border-subtle)' }}
       >
+        {!readOnly && (
+          <Toolbar editorRef={bodyRef} onChanged={flushBodyFromDom} />
+        )}
         <BodyEditor
           key={note?.id ?? 'new'}
+          editorRef={bodyRef}
           initialHtml={note?.body ?? ''}
           readOnly={readOnly}
           onChange={handleBodyChange}
         />
       </div>
-
-      {!readOnly && (
-        <div
-          className="t-caption px-1"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
-          입력 중 적용: <kbd style={kbdStyle}>#</kbd>{' '}
-          <kbd style={kbdStyle}>##</kbd> <kbd style={kbdStyle}>###</kbd>{' '}
-          <kbd style={kbdStyle}>-</kbd> <kbd style={kbdStyle}>1.</kbd>{' '}
-          <kbd style={kbdStyle}>{'>'}</kbd> + Space ·{' '}
-          <kbd style={kbdStyle}>```</kbd>+Enter 코드블록 ·{' '}
-          <kbd style={kbdStyle}>---</kbd>+Enter 구분선 ·{' '}
-          <kbd style={kbdStyle}>⌘B</kbd> 굵게 · <kbd style={kbdStyle}>⌘I</kbd> 기울임
-        </div>
-      )}
     </div>
   );
 }
-
-const kbdStyle = {
-  background: 'var(--surface-layered)',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 4,
-  padding: '0 4px',
-  fontFamily: 'var(--font-mono)',
-  fontSize: 11,
-};
 
 // ---------------------------------------------------------------
 // BodyEditor — single contenteditable surface.
@@ -232,11 +221,9 @@ const kbdStyle = {
 // (#, ##, ###, -, *, 1., >) and Enter (```code```, ---). Paste from
 // Notion runs through the HTML sanitizer so bold/code/lists survive.
 // ---------------------------------------------------------------
-function BodyEditor({ initialHtml, readOnly, onChange }) {
-  const ref = useRef(null);
-
+function BodyEditor({ editorRef, initialHtml, readOnly, onChange }) {
   useEffect(() => {
-    const el = ref.current;
+    const el = editorRef.current;
     if (!el) return;
     el.innerHTML = initialHtml || '';
     try {
@@ -249,7 +236,7 @@ function BodyEditor({ initialHtml, readOnly, onChange }) {
   }, []);
 
   const flush = () => {
-    if (ref.current) onChange(ref.current.innerHTML);
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
   };
 
   const handleInput = () => flush();
@@ -269,16 +256,16 @@ function BodyEditor({ initialHtml, readOnly, onChange }) {
 
   const handleKeyDown = (e) => {
     if (readOnly) return;
-    if (e.key === ' ' && handleSpaceShortcut(e, ref.current)) {
+    if (e.key === ' ' && handleSpaceShortcut(e, editorRef.current)) {
       flush();
-    } else if (e.key === 'Enter' && !e.shiftKey && handleEnterShortcut(e, ref.current)) {
+    } else if (e.key === 'Enter' && !e.shiftKey && handleEnterShortcut(e, editorRef.current)) {
       flush();
     }
   };
 
   return (
     <div
-      ref={ref}
+      ref={editorRef}
       className="note-body w-full outline-none"
       contentEditable={!readOnly}
       suppressContentEditableWarning
@@ -286,7 +273,7 @@ function BodyEditor({ initialHtml, readOnly, onChange }) {
       onInput={handleInput}
       onPaste={handlePaste}
       onKeyDown={handleKeyDown}
-      data-placeholder={readOnly ? '' : '내용을 입력하세요. 노션에서 그대로 복사·붙여넣기 가능합니다.'}
+      data-placeholder={readOnly ? '' : '내용을 입력하거나 노션에서 그대로 복사·붙여넣어 주세요.'}
       style={{
         fontSize: 16,
         lineHeight: '26px',
@@ -295,6 +282,166 @@ function BodyEditor({ initialHtml, readOnly, onChange }) {
       }}
     />
   );
+}
+
+// ---------------------------------------------------------------
+// Toolbar — sticky formatting bar above the editor.
+//
+// Buttons use mousedown.preventDefault so clicking them doesn't steal
+// the editor's selection. Most actions go through document.execCommand
+// (deprecated but universally supported and the simplest path for a
+// small in-house editor); inline code and the code block are handled
+// manually since the standard commands don't cover them.
+// ---------------------------------------------------------------
+function Toolbar({ editorRef, onChanged }) {
+  const focus = () => editorRef.current?.focus();
+
+  const exec = (cmd, value) => {
+    focus();
+    try {
+      document.execCommand(cmd, false, value);
+    } catch {
+      /* ignore — execCommand is best-effort here */
+    }
+    onChanged();
+  };
+
+  const setBlock = (tag) => exec('formatBlock', tag.toUpperCase());
+
+  const wrapInline = (tag) => {
+    focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    const wrapper = document.createElement(tag);
+    try {
+      range.surroundContents(wrapper);
+    } catch {
+      wrapper.appendChild(range.extractContents());
+      range.insertNode(wrapper);
+    }
+    const r = document.createRange();
+    r.selectNodeContents(wrapper);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    onChanged();
+  };
+
+  const insertCodeBlock = () => {
+    focus();
+    const sel = window.getSelection();
+    const root = editorRef.current;
+    if (!sel || sel.rangeCount === 0 || !root) return;
+    const block = findBlock(sel.getRangeAt(0).startContainer, root);
+    if (!block || block.tagName === 'PRE') return;
+    const text = block.textContent ?? '';
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    if (text) code.textContent = text;
+    else code.appendChild(document.createElement('br'));
+    pre.appendChild(code);
+    block.replaceWith(pre);
+    placeCursorAtStart(code);
+    onChanged();
+  };
+
+  const insertLink = () => {
+    const sel = window.getSelection();
+    const hadSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed;
+    const url = window.prompt('링크 URL을 입력하세요', 'https://');
+    if (!url) return;
+    focus();
+    if (hadSelection) {
+      exec('createLink', url);
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.textContent = url;
+      a.target = '_blank';
+      a.rel = 'noreferrer noopener';
+      insertNodeAtCursor(a);
+      onChanged();
+    }
+  };
+
+  const insertHr = () => exec('insertHorizontalRule');
+
+  const noFocusSteal = (e) => e.preventDefault();
+
+  return (
+    <div
+      onMouseDown={noFocusSteal}
+      className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-0.5 rounded-md px-1.5 py-1"
+      style={{
+        background: 'var(--surface-glass)',
+        backdropFilter: 'blur(20px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      <ToolBtn icon={Heading1} label="제목 1" onClick={() => setBlock('h1')} />
+      <ToolBtn icon={Heading2} label="제목 2" onClick={() => setBlock('h2')} />
+      <ToolBtn icon={Heading3} label="제목 3" onClick={() => setBlock('h3')} />
+      <Sep />
+      <ToolBtn icon={Bold} label="굵게 (⌘B)" onClick={() => exec('bold')} />
+      <ToolBtn icon={Italic} label="기울임 (⌘I)" onClick={() => exec('italic')} />
+      <ToolBtn icon={Strikethrough} label="취소선" onClick={() => exec('strikeThrough')} />
+      <ToolBtn icon={Code} label="인라인 코드" onClick={() => wrapInline('code')} />
+      <Sep />
+      <ToolBtn icon={List} label="글머리 목록" onClick={() => exec('insertUnorderedList')} />
+      <ToolBtn icon={ListOrdered} label="번호 목록" onClick={() => exec('insertOrderedList')} />
+      <ToolBtn icon={Quote} label="인용" onClick={() => setBlock('blockquote')} />
+      <Sep />
+      <ToolBtn icon={Code2} label="코드 블록" onClick={insertCodeBlock} />
+      <ToolBtn icon={LinkIcon} label="링크" onClick={insertLink} />
+      <ToolBtn icon={Minus} label="구분선" onClick={insertHr} />
+    </div>
+  );
+}
+
+function ToolBtn({ icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="flex h-8 w-8 items-center justify-center rounded transition-colors"
+      style={{ color: 'var(--text-secondary)' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--surface-layered)';
+        e.currentTarget.style.color = 'var(--text-primary)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.color = 'var(--text-secondary)';
+      }}
+    >
+      <Icon size={16} strokeWidth={1.75} />
+    </button>
+  );
+}
+
+function Sep() {
+  return (
+    <div
+      className="mx-1 h-5 w-px"
+      style={{ background: 'var(--border-subtle)' }}
+    />
+  );
+}
+
+function insertNodeAtCursor(node) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(node);
+  const r = document.createRange();
+  r.setStartAfter(node);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
 }
 
 // ---- selection / DOM helpers -----------------------------------
