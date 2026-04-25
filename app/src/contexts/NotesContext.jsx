@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import { useToast } from './ToastContext.jsx';
-import { emptyNote, listNotes, removeNote, upsertNote } from '../lib/notes.js';
+import { emptyNote, listNotes, noteBodyText, removeNote, upsertNote } from '../lib/notes.js';
 import {
   createFolder as createFolderReq,
   listFolders,
@@ -60,7 +60,7 @@ export function NotesProvider({ children }) {
       list = list.filter((n) => {
         if (n.title.toLowerCase().includes(q)) return true;
         if ((n.tags ?? []).some((t) => t.toLowerCase().includes(q))) return true;
-        return (n.blocks ?? []).some((b) => (b.text ?? '').toLowerCase().includes(q));
+        return noteBodyText(n).toLowerCase().includes(q);
       });
     }
     return list;

@@ -1,33 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Pin, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft, Bold, Code, Code2, Heading1, Heading2, Heading3,
+  Italic, Link as LinkIcon, List, ListOrdered, Minus, Pin,
+  Quote, Strikethrough, Trash2, X,
+} from 'lucide-react';
 import AutoTextarea from './AutoTextarea.jsx';
 import IconButton from './IconButton.jsx';
-import Button from './Button.jsx';
 import FormSelect from './FormSelect.jsx';
-import SlashMenu from './SlashMenu.jsx';
-import { emptyBlock, isTextLike } from '../lib/notes.js';
+import { noteHasContent } from '../lib/notes.js';
+import { sanitizeHtml, escapeHtml } from '../lib/htmlSanitize.js';
 import { useViewport } from '../contexts/ViewportContext.jsx';
 
 const TITLE_MAX = 100;
-
-// Markdown shortcuts. Triggered when user presses space at the end of
-// the leading marker. Returns the patch to apply to the block.
-const MD_SHORTCUTS = [
-  { match: '#', patch: { type: 'h1' } },
-  { match: '##', patch: { type: 'h2' } },
-  { match: '###', patch: { type: 'h3' } },
-  { match: '-', patch: { type: 'bullet' } },
-  { match: '*', patch: { type: 'bullet' } },
-  { match: '1.', patch: { type: 'numbered' } },
-  { match: '[]', patch: { type: 'check', checked: false } },
-  { match: '[ ]', patch: { type: 'check', checked: false } },
-  { match: '>', patch: { type: 'quote' } },
-];
-
-function detectMarkdown(text) {
-  for (const it of MD_SHORTCUTS) if (text === it.match) return it.patch;
-  return null;
-}
 
 export default function NotePage({
   note,
@@ -40,11 +24,9 @@ export default function NotePage({
   const [draft, setDraft] = useState(note);
   const [dirty, setDirty] = useState(false);
   const [tagInput, setTagInput] = useState('');
-  const [slash, setSlash] = useState(null); // { blockId, query, anchorRect }
-  const [focusReq, setFocusReq] = useState(null); // { blockId, offset }
-  const blockRefs = useRef({});
   const dirtyRef = useRef(false);
   const draftRef = useRef(note);
+  const bodyRef = useRef(null);
   const { canMutateNotes } = useViewport();
   const readOnly = !canMutateNotes;
 
@@ -52,124 +34,33 @@ export default function NotePage({
     setDraft(note);
     setDirty(false);
     setTagInput('');
-    setSlash(null);
     dirtyRef.current = false;
     draftRef.current = note;
   }, [note?.id]);
 
   useEffect(() => {
-    draftRef.current = draft;
+    draftRef.current = { ...draft, body: draftRef.current.body };
   }, [draft]);
   useEffect(() => {
     dirtyRef.current = dirty;
   }, [dirty]);
-
-  // Apply a pending focus request after re-render.
-  useEffect(() => {
-    if (!focusReq) return;
-    const el = blockRefs.current[focusReq.blockId];
-    if (!el) return;
-    el.focus();
-    const offset = focusReq.offset ?? el.value.length;
-    try {
-      el.setSelectionRange(offset, offset);
-    } catch {
-      /* divider blocks have no selection */
-    }
-    setFocusReq(null);
-  }, [focusReq, draft.blocks]);
 
   const mutate = (patch) => {
     setDraft((d) => ({ ...d, ...patch }));
     setDirty(true);
   };
 
-  const setBlocks = (updater) => {
-    setDraft((d) => ({
-      ...d,
-      blocks: typeof updater === 'function' ? updater(d.blocks) : updater,
-    }));
+  const handleBodyChange = (html) => {
+    draftRef.current = { ...draftRef.current, body: html };
+    dirtyRef.current = true;
     setDirty(true);
   };
 
-  const updateBlock = (id, patch) =>
-    setBlocks((bs) => bs.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-
-  const insertAfter = (afterId, newBlock) => {
-    setBlocks((bs) => {
-      const idx = bs.findIndex((b) => b.id === afterId);
-      if (idx < 0) return [...bs, newBlock];
-      return [...bs.slice(0, idx + 1), newBlock, ...bs.slice(idx + 1)];
-    });
-    setFocusReq({ blockId: newBlock.id, offset: 0 });
+  const flushBodyFromDom = () => {
+    if (bodyRef.current) handleBodyChange(bodyRef.current.innerHTML);
   };
 
-  const removeAndMergeUp = (id) => {
-    setBlocks((bs) => {
-      const idx = bs.findIndex((b) => b.id === id);
-      if (idx <= 0) return bs;
-      const current = bs[idx];
-      const prev = bs[idx - 1];
-      if (prev.type === 'divider') {
-        // remove the divider above us instead
-        setFocusReq({ blockId: id, offset: 0 });
-        return [...bs.slice(0, idx - 1), ...bs.slice(idx)];
-      }
-      const merged = { ...prev, text: (prev.text ?? '') + (current.text ?? '') };
-      setFocusReq({ blockId: prev.id, offset: (prev.text ?? '').length });
-      return [...bs.slice(0, idx - 1), merged, ...bs.slice(idx + 1)];
-    });
-  };
-
-  const removeBlock = (id) => {
-    setBlocks((bs) => {
-      if (bs.length <= 1) return bs;
-      const idx = bs.findIndex((b) => b.id === id);
-      if (idx < 0) return bs;
-      const focusTarget = bs[idx - 1] ?? bs[idx + 1];
-      if (focusTarget) setFocusReq({ blockId: focusTarget.id });
-      return bs.filter((b) => b.id !== id);
-    });
-  };
-
-  // ---- slash menu ----
-  const openSlashAt = useCallback((blockId, query) => {
-    const el = blockRefs.current[blockId];
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setSlash({ blockId, query, anchorRect: rect });
-  }, []);
-
-  const closeSlash = () => setSlash(null);
-
-  const applySlashPick = (item) => {
-    if (!slash) return;
-    const id = slash.blockId;
-    const blocks = draftRef.current.blocks;
-    const target = blocks.find((b) => b.id === id);
-    if (!target) {
-      closeSlash();
-      return;
-    }
-    if (item.type === 'divider') {
-      // turn current into divider, append empty text after for cursor
-      const next = emptyBlock('text');
-      setBlocks((bs) =>
-        bs.flatMap((b) =>
-          b.id === id ? [{ ...b, type: 'divider', text: '' }, next] : [b],
-        ),
-      );
-      setFocusReq({ blockId: next.id, offset: 0 });
-    } else {
-      const patch = { type: item.type, text: '' };
-      if (item.type === 'check') patch.checked = false;
-      updateBlock(id, patch);
-      setFocusReq({ blockId: id, offset: 0 });
-    }
-    closeSlash();
-  };
-
-  // ---- tags / title / pin ----
+  // ---- tags ----
   const addTag = () => {
     const raw = tagInput.trim().replace(/^#/, '');
     if (!raw) return;
@@ -184,18 +75,12 @@ export default function NotePage({
   const removeTag = (t) =>
     mutate({ tags: (draft.tags ?? []).filter((x) => x !== t) });
 
-  // ---- save / back / delete ----
-  const hasContent = (n) =>
-    (n.title ?? '').trim() ||
-    (n.blocks ?? []).some(
-      (b) => b.type === 'divider' || (b.text ?? '').trim().length > 0,
-    );
-
+  // ---- save ----
   const saveIfNeeded = async () => {
     if (readOnly) return;
     const current = draftRef.current;
     if (!dirtyRef.current) return;
-    if (!hasContent(current)) return;
+    if (!noteHasContent(current)) return;
     await onSave({ ...current, title: (current.title ?? '').trim() });
   };
 
@@ -217,120 +102,6 @@ export default function NotePage({
     onDelete?.(draft);
   };
 
-  // ---- per-block keydown ----
-  const handleBlockKeyDown = (block, e) => {
-    const el = e.target;
-    const cursor = el.selectionStart ?? 0;
-    const cursorEnd = el.selectionEnd ?? 0;
-    const value = block.text ?? '';
-
-    // Slash trigger: typing "/" at empty position with no current text.
-    // Slash menu typing is forwarded to its own keydown handler.
-
-    if (slash && slash.blockId === block.id) {
-      // Let SlashMenu handle Enter/Tab/Escape/Arrow via its own listener.
-      // But Escape closes locally too.
-      if (e.key === 'Backspace' && value === '/') {
-        // erasing the slash closes the menu
-        closeSlash();
-      }
-      return;
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !e.nativeEvent?.isComposing) {
-      e.preventDefault();
-      handleEnter(block, cursor);
-      return;
-    }
-
-    if (
-      e.key === 'Backspace' &&
-      cursor === 0 &&
-      cursorEnd === 0
-    ) {
-      // empty list-like -> demote to text instead of deleting
-      if (value === '' && block.type !== 'text' && block.type !== 'divider') {
-        e.preventDefault();
-        const patch = { type: 'text' };
-        if (block.type === 'check') patch.checked = undefined;
-        updateBlock(block.id, patch);
-        return;
-      }
-      // first block && empty -> nothing
-      const idx = draftRef.current.blocks.findIndex((b) => b.id === block.id);
-      if (idx === 0) return;
-      e.preventDefault();
-      removeAndMergeUp(block.id);
-      return;
-    }
-
-    if (e.key === ' ') {
-      const patch = detectMarkdown(value);
-      if (patch && block.type === 'text' && cursor === value.length) {
-        e.preventDefault();
-        updateBlock(block.id, { ...patch, text: '' });
-      }
-    }
-  };
-
-  const handleEnter = (block, cursor) => {
-    const value = block.text ?? '';
-    // typed "---" + Enter on a text block → divider
-    if (block.type === 'text' && value.trim() === '---') {
-      const next = emptyBlock('text');
-      setBlocks((bs) =>
-        bs.flatMap((b) => (b.id === block.id ? [{ ...b, type: 'divider', text: '' }, next] : [b])),
-      );
-      setFocusReq({ blockId: next.id, offset: 0 });
-      return;
-    }
-
-    // empty list-like → demote to text (don't create new block)
-    if (
-      !value &&
-      ['bullet', 'numbered', 'check', 'quote'].includes(block.type)
-    ) {
-      const patch = { type: 'text' };
-      if (block.type === 'check') patch.checked = undefined;
-      updateBlock(block.id, patch);
-      return;
-    }
-
-    const before = value.slice(0, cursor);
-    const after = value.slice(cursor);
-    const carryType = ['bullet', 'numbered', 'quote'].includes(block.type)
-      ? block.type
-      : block.type === 'check'
-      ? 'check'
-      : 'text';
-    const newBlock = emptyBlock(carryType);
-    newBlock.text = after;
-
-    setBlocks((bs) =>
-      bs.flatMap((b) => (b.id === block.id ? [{ ...b, text: before }, newBlock] : [b])),
-    );
-    setFocusReq({ blockId: newBlock.id, offset: 0 });
-  };
-
-  // ---- text change w/ slash menu detection ----
-  const handleTextChange = (block, newValue) => {
-    // open slash if user just typed `/` at the start of a text block
-    if (
-      block.type === 'text' &&
-      newValue.startsWith('/') &&
-      !(block.text ?? '').startsWith('/')
-    ) {
-      openSlashAt(block.id, newValue.slice(1));
-    } else if (slash && slash.blockId === block.id) {
-      if (!newValue.startsWith('/')) {
-        closeSlash();
-      } else {
-        setSlash((s) => ({ ...s, query: newValue.slice(1) }));
-      }
-    }
-    updateBlock(block.id, { text: newValue });
-  };
-
   const folderOptions = useMemo(
     () => [
       { value: '', label: '분류 없음' },
@@ -338,23 +109,6 @@ export default function NotePage({
     ],
     [folders],
   );
-
-  // numbered list numbering — count consecutive `numbered` runs
-  const numberByBlock = useMemo(() => {
-    const map = {};
-    let n = 0;
-    let prevType = null;
-    for (const b of draft.blocks ?? []) {
-      if (b.type === 'numbered') {
-        n = prevType === 'numbered' ? n + 1 : 1;
-        map[b.id] = n;
-      } else {
-        n = 0;
-      }
-      prevType = b.type;
-    }
-    return map;
-  }, [draft.blocks]);
 
   return (
     <div
@@ -439,298 +193,505 @@ export default function NotePage({
       />
 
       <div
-        className="flex flex-col gap-0.5 border-t pt-4"
+        className="border-t pt-2"
         style={{ borderColor: 'var(--border-subtle)' }}
       >
-        {(draft.blocks ?? []).map((b) => (
-          <BlockRow
-            key={b.id}
-            block={b}
-            number={numberByBlock[b.id]}
-            readOnly={readOnly}
-            registerRef={(el) => {
-              if (el) blockRefs.current[b.id] = el;
-              else delete blockRefs.current[b.id];
-            }}
-            onTextChange={(v) => handleTextChange(b, v)}
-            onCheckedChange={(c) => updateBlock(b.id, { checked: c })}
-            onKeyDown={(e) => handleBlockKeyDown(b, e)}
-            onRemove={() => removeBlock(b.id)}
-            disableRemove={(draft.blocks ?? []).length <= 1}
-          />
-        ))}
-
         {!readOnly && (
-          <div
-            className="mt-3 t-caption px-1"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            빈 블록에서 <kbd style={kbdStyle}>/</kbd>로 블록 추가 ·{' '}
-            <kbd style={kbdStyle}>#</kbd> <kbd style={kbdStyle}>-</kbd>{' '}
-            <kbd style={kbdStyle}>[]</kbd> <kbd style={kbdStyle}>{'>'}</kbd>{' '}
-            + Space로 변환
-          </div>
+          <Toolbar editorRef={bodyRef} onChanged={flushBodyFromDom} />
         )}
-      </div>
-
-      {slash && (
-        <SlashMenu
-          anchorRect={slash.anchorRect}
-          query={slash.query}
-          onSelect={applySlashPick}
-          onClose={closeSlash}
+        <BodyEditor
+          key={note?.id ?? 'new'}
+          editorRef={bodyRef}
+          initialHtml={note?.body ?? ''}
+          readOnly={readOnly}
+          onChange={handleBodyChange}
         />
-      )}
+      </div>
     </div>
   );
 }
 
-const kbdStyle = {
-  background: 'var(--surface-layered)',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 4,
-  padding: '0 4px',
-  fontFamily: 'var(--font-mono)',
-  fontSize: 11,
-};
+// ---------------------------------------------------------------
+// BodyEditor — single contenteditable surface.
+//
+// React doesn't control the DOM here; we set innerHTML once on mount
+// and let the browser own selection/edits. onInput pushes the current
+// HTML up to the parent through a ref so re-renders never blow away
+// cursor position. Block-level markdown shortcuts trigger on Space
+// (#, ##, ###, -, *, 1., >) and Enter (```code```, ---). Paste from
+// Notion runs through the HTML sanitizer so bold/code/lists survive.
+// ---------------------------------------------------------------
+function BodyEditor({ editorRef, initialHtml, readOnly, onChange }) {
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.innerHTML = initialHtml || '';
+    try {
+      // Make Enter create <p> blocks instead of <div> on Chrome.
+      document.execCommand('defaultParagraphSeparator', false, 'p');
+    } catch {
+      /* ignore — Firefox uses <br> by default which we also tolerate */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-function BlockRow({
-  block,
-  number,
-  readOnly,
-  registerRef,
-  onTextChange,
-  onCheckedChange,
-  onKeyDown,
-  onRemove,
-  disableRemove,
-}) {
-  if (block.type === 'divider') {
-    return (
-      <DividerRow onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} />
-    );
-  }
-
-  const sharedProps = {
-    ref: registerRef,
-    value: block.text,
-    onChange: (e) => onTextChange(e.target.value),
-    onKeyDown: readOnly ? undefined : onKeyDown,
-    minRows: 1,
-    readOnly,
+  const flush = () => {
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
   };
 
-  if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-    const sizes = {
-      h1: { fontSize: 28, lineHeight: '36px', fontWeight: 700 },
-      h2: { fontSize: 22, lineHeight: '30px', fontWeight: 600 },
-      h3: { fontSize: 18, lineHeight: '26px', fontWeight: 600 },
-    };
-    return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly}>
-        <AutoTextarea
-          {...sharedProps}
-          placeholder={
-            block.type === 'h1' ? '큰 제목' : block.type === 'h2' ? '중간 제목' : '작은 제목'
-          }
-          style={{
-            ...sizes[block.type],
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.01em',
-          }}
-        />
-      </RowShell>
-    );
-  }
+  const handleInput = () => flush();
 
-  if (block.type === 'check') {
-    return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} align="start">
-        <label className="mt-1.5 flex cursor-pointer items-center">
-          <input
-            type="checkbox"
-            checked={!!block.checked}
-            onChange={(e) => onCheckedChange(e.target.checked)}
-            disabled={readOnly}
-            className="h-4 w-4"
-            style={{ accentColor: 'var(--accent-brand)' }}
-          />
-        </label>
-        <AutoTextarea
-          {...sharedProps}
-          placeholder="할 일"
-          style={{
-            fontSize: 16,
-            lineHeight: '26px',
-            color: block.checked ? 'var(--text-tertiary)' : 'var(--text-primary)',
-            textDecoration: block.checked ? 'line-through' : 'none',
-          }}
-        />
-      </RowShell>
-    );
-  }
+  const handlePaste = (e) => {
+    if (readOnly) return;
+    e.preventDefault();
+    const cd = e.clipboardData;
+    const html = cd?.getData('text/html');
+    const text = cd?.getData('text/plain') ?? '';
+    const toInsert = html
+      ? sanitizeHtml(html)
+      : escapeHtml(text).replace(/\r?\n/g, '<br>');
+    insertHtmlAtCursor(toInsert);
+    flush();
+  };
 
-  if (block.type === 'bullet') {
-    return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} align="start">
-        <span
-          className="select-none"
-          style={{
-            color: 'var(--text-secondary)',
-            fontSize: 18,
-            lineHeight: '26px',
-            paddingTop: 0,
-            width: 16,
-            textAlign: 'center',
-            flexShrink: 0,
-          }}
-        >
-          •
-        </span>
-        <AutoTextarea
-          {...sharedProps}
-          placeholder=""
-          style={{
-            fontSize: 16,
-            lineHeight: '26px',
-            color: 'var(--text-primary)',
-          }}
-        />
-      </RowShell>
-    );
-  }
+  const handleKeyDown = (e) => {
+    if (readOnly) return;
+    if (e.key === ' ' && handleSpaceShortcut(e, editorRef.current)) {
+      flush();
+    } else if (e.key === 'Enter' && !e.shiftKey && handleEnterShortcut(e, editorRef.current)) {
+      flush();
+    }
+  };
 
-  if (block.type === 'numbered') {
-    return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly} align="start">
-        <span
-          className="select-none"
-          style={{
-            color: 'var(--text-secondary)',
-            fontSize: 16,
-            lineHeight: '26px',
-            paddingTop: 0,
-            minWidth: 20,
-            textAlign: 'right',
-            flexShrink: 0,
-          }}
-        >
-          {number ?? 1}.
-        </span>
-        <AutoTextarea
-          {...sharedProps}
-          placeholder=""
-          style={{
-            fontSize: 16,
-            lineHeight: '26px',
-            color: 'var(--text-primary)',
-          }}
-        />
-      </RowShell>
-    );
-  }
-
-  if (block.type === 'quote') {
-    return (
-      <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly}>
-        <div
-          className="pl-3"
-          style={{
-            borderLeft: '3px solid var(--border-strong)',
-            width: '100%',
-          }}
-        >
-          <AutoTextarea
-            {...sharedProps}
-            placeholder="인용"
-            style={{
-              fontSize: 15,
-              lineHeight: '26px',
-              color: 'var(--text-secondary)',
-              fontStyle: 'italic',
-            }}
-          />
-        </div>
-      </RowShell>
-    );
-  }
-
-  // text (default)
-  return (
-    <RowShell onRemove={onRemove} disableRemove={disableRemove} readOnly={readOnly}>
-      <AutoTextarea
-        {...sharedProps}
-        placeholder={readOnly ? '' : '내용 또는 / 입력'}
-        style={{
-          fontSize: 16,
-          lineHeight: '26px',
-          color: 'var(--text-primary)',
-        }}
-      />
-    </RowShell>
-  );
-}
-
-function DividerRow({ onRemove, disableRemove, readOnly }) {
   return (
     <div
-      className="group flex items-center gap-2 rounded-md px-1 py-2"
-      style={{ transition: 'background 160ms var(--ease-soft)' }}
-      onMouseEnter={(e) => {
-        if (!readOnly) e.currentTarget.style.background = 'var(--surface-layered)';
-      }}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-    >
-      <div
-        className="flex-1"
-        style={{ borderTop: '1px solid var(--border-default)' }}
-      />
-      {!readOnly && (
-        <button
-          onClick={onRemove}
-          disabled={disableRemove}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
-          style={{ color: 'var(--text-tertiary)' }}
-          aria-label="구분선 삭제"
-        >
-          <X size={14} strokeWidth={1.75} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function RowShell({ children, onRemove, disableRemove, readOnly, align = 'center' }) {
-  return (
-    <div
-      className="group flex gap-2 rounded-md px-1 py-1"
+      ref={editorRef}
+      className="note-body w-full outline-none"
+      contentEditable={!readOnly}
+      suppressContentEditableWarning
+      spellCheck={false}
+      onInput={handleInput}
+      onPaste={handlePaste}
+      onKeyDown={handleKeyDown}
+      data-placeholder={readOnly ? '' : '내용을 입력하거나 노션에서 그대로 복사·붙여넣어 주세요.'}
       style={{
-        alignItems: align === 'start' ? 'flex-start' : 'center',
-        transition: 'background 160ms var(--ease-soft)',
+        fontSize: 16,
+        lineHeight: '26px',
+        color: 'var(--text-primary)',
+        minHeight: 240,
       }}
-      onMouseEnter={(e) => {
-        if (!readOnly) e.currentTarget.style.background = 'var(--surface-layered)';
+    />
+  );
+}
+
+// ---------------------------------------------------------------
+// Toolbar — sticky formatting bar above the editor.
+//
+// Buttons use mousedown.preventDefault so clicking them doesn't steal
+// the editor's selection. Most actions go through document.execCommand
+// (deprecated but universally supported and the simplest path for a
+// small in-house editor); inline code and the code block are handled
+// manually since the standard commands don't cover them.
+// ---------------------------------------------------------------
+function Toolbar({ editorRef, onChanged }) {
+  const [active, setActive] = useState({});
+
+  const refresh = () => {
+    const root = editorRef.current;
+    if (!root) return;
+    setActive(detectActiveFormats(root));
+  };
+
+  // Track selection changes globally so the toolbar reflects the
+  // formatting at the cursor's current position. Filter to selections
+  // anchored inside our editor to avoid stomping state on unrelated
+  // selections elsewhere on the page.
+  useEffect(() => {
+    const handler = () => {
+      const root = editorRef.current;
+      if (!root) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      if (root.contains(sel.anchorNode)) refresh();
+    };
+    document.addEventListener('selectionchange', handler);
+    return () => document.removeEventListener('selectionchange', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const focus = () => editorRef.current?.focus();
+
+  const exec = (cmd, value) => {
+    focus();
+    try {
+      document.execCommand(cmd, false, value);
+    } catch {
+      /* ignore — execCommand is best-effort here */
+    }
+    onChanged();
+    refresh();
+  };
+
+  const setBlock = (tag) => exec('formatBlock', tag.toUpperCase());
+
+  const wrapInline = (tag) => {
+    focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    const wrapper = document.createElement(tag);
+    try {
+      range.surroundContents(wrapper);
+    } catch {
+      wrapper.appendChild(range.extractContents());
+      range.insertNode(wrapper);
+    }
+    const r = document.createRange();
+    r.selectNodeContents(wrapper);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    onChanged();
+    refresh();
+  };
+
+  const insertCodeBlock = () => {
+    focus();
+    const sel = window.getSelection();
+    const root = editorRef.current;
+    if (!sel || sel.rangeCount === 0 || !root) return;
+    const block = findBlock(sel.getRangeAt(0).startContainer, root);
+    if (!block || block.tagName === 'PRE') return;
+    const text = block.textContent ?? '';
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    if (text) code.textContent = text;
+    else code.appendChild(document.createElement('br'));
+    pre.appendChild(code);
+    block.replaceWith(pre);
+    placeCursorAtStart(code);
+    onChanged();
+    refresh();
+  };
+
+  const insertLink = () => {
+    const sel = window.getSelection();
+    const hadSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed;
+    const url = window.prompt('링크 URL을 입력하세요', 'https://');
+    if (!url) return;
+    focus();
+    if (hadSelection) {
+      exec('createLink', url);
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.textContent = url;
+      a.target = '_blank';
+      a.rel = 'noreferrer noopener';
+      insertNodeAtCursor(a);
+      onChanged();
+      refresh();
+    }
+  };
+
+  const insertHr = () => exec('insertHorizontalRule');
+
+  const noFocusSteal = (e) => e.preventDefault();
+
+  return (
+    <div
+      onMouseDown={noFocusSteal}
+      className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-0.5 rounded-md px-1.5 py-1"
+      style={{
+        background: 'var(--surface-glass)',
+        backdropFilter: 'blur(20px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+        border: '1px solid var(--border-subtle)',
       }}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
-      <div className="flex min-w-0 flex-1 items-start gap-2">{children}</div>
-      {!readOnly && (
-        <button
-          onClick={onRemove}
-          disabled={disableRemove}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
-          style={{
-            color: 'var(--text-tertiary)',
-            cursor: disableRemove ? 'not-allowed' : 'pointer',
-          }}
-          aria-label="블록 삭제"
-        >
-          <X size={14} strokeWidth={1.75} />
-        </button>
-      )}
+      <ToolBtn icon={Heading1} label="제목 1" active={active.h1} onClick={() => setBlock('h1')} />
+      <ToolBtn icon={Heading2} label="제목 2" active={active.h2} onClick={() => setBlock('h2')} />
+      <ToolBtn icon={Heading3} label="제목 3" active={active.h3} onClick={() => setBlock('h3')} />
+      <Sep />
+      <ToolBtn icon={Bold} label="굵게 (⌘B)" active={active.bold} onClick={() => exec('bold')} />
+      <ToolBtn icon={Italic} label="기울임 (⌘I)" active={active.italic} onClick={() => exec('italic')} />
+      <ToolBtn icon={Strikethrough} label="취소선" active={active.strike} onClick={() => exec('strikeThrough')} />
+      <ToolBtn icon={Code} label="인라인 코드" active={active.inlineCode} onClick={() => wrapInline('code')} />
+      <Sep />
+      <ToolBtn icon={List} label="글머리 목록" active={active.ul} onClick={() => exec('insertUnorderedList')} />
+      <ToolBtn icon={ListOrdered} label="번호 목록" active={active.ol} onClick={() => exec('insertOrderedList')} />
+      <ToolBtn icon={Quote} label="인용" active={active.quote} onClick={() => setBlock('blockquote')} />
+      <Sep />
+      <ToolBtn icon={Code2} label="코드 블록" active={active.codeBlock} onClick={insertCodeBlock} />
+      <ToolBtn icon={LinkIcon} label="링크" active={active.link} onClick={insertLink} />
+      <ToolBtn icon={Minus} label="구분선" onClick={insertHr} />
     </div>
   );
 }
+
+function ToolBtn({ icon: Icon, label, onClick, active }) {
+  const [hover, setHover] = useState(false);
+  const highlighted = hover || active;
+  const color = active
+    ? 'var(--accent-brand)'
+    : hover
+    ? 'var(--text-primary)'
+    : 'var(--text-secondary)';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={label}
+      aria-label={label}
+      aria-pressed={!!active}
+      className="flex h-8 w-8 items-center justify-center rounded transition-colors"
+      style={{
+        background: highlighted ? 'var(--surface-layered)' : 'transparent',
+        color,
+      }}
+    >
+      <Icon size={16} strokeWidth={1.75} />
+    </button>
+  );
+}
+
+function Sep() {
+  return (
+    <div
+      className="mx-1 h-5 w-px"
+      style={{ background: 'var(--border-subtle)' }}
+    />
+  );
+}
+
+function insertNodeAtCursor(node) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(node);
+  const r = document.createRange();
+  r.setStartAfter(node);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
+// ---- selection / DOM helpers -----------------------------------
+
+function insertHtmlAtCursor(html) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  const frag = tpl.content;
+  const last = frag.lastChild;
+  range.insertNode(frag);
+  if (last) {
+    const r = document.createRange();
+    r.setStartAfter(last);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+}
+
+const BLOCK_TAGS = new Set([
+  'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'LI', 'PRE',
+]);
+
+function findBlock(node, root) {
+  let cur = node;
+  while (cur && cur !== root) {
+    if (cur.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(cur.tagName)) return cur;
+    cur = cur.parentNode;
+  }
+  return null;
+}
+
+// Inspect the current selection and report which formatting tags are
+// applied at the cursor. Used by the toolbar to highlight active
+// buttons. Bold/italic/strike use queryCommandState (works across
+// browsers); block-level (heading/list/quote/code) and link/inline
+// code are determined by walking up the ancestor chain.
+function detectActiveFormats(root) {
+  const sel = window.getSelection();
+  const out = {};
+  if (!sel || sel.rangeCount === 0) return out;
+  const node = sel.anchorNode;
+  if (!node || !root.contains(node)) return out;
+
+  try {
+    out.bold = document.queryCommandState('bold');
+    out.italic = document.queryCommandState('italic');
+    out.strike = document.queryCommandState('strikeThrough');
+  } catch {
+    /* ignore — query is best-effort */
+  }
+
+  let cur = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+  let insidePre = false;
+  while (cur && cur !== root) {
+    const tag = cur.tagName;
+    if (tag === 'PRE') {
+      out.codeBlock = true;
+      insidePre = true;
+    } else if (tag === 'CODE' && !insidePre) {
+      out.inlineCode = true;
+    } else if (tag === 'H1') out.h1 = true;
+    else if (tag === 'H2') out.h2 = true;
+    else if (tag === 'H3') out.h3 = true;
+    else if (tag === 'BLOCKQUOTE') out.quote = true;
+    else if (tag === 'UL') out.ul = true;
+    else if (tag === 'OL') out.ol = true;
+    else if (tag === 'A') out.link = true;
+    cur = cur.parentNode;
+  }
+  return out;
+}
+
+function getTextBeforeCursor(block, range) {
+  const r = range.cloneRange();
+  r.setStart(block, 0);
+  return r.toString();
+}
+
+function placeCursorAtStart(el) {
+  const range = document.createRange();
+  if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
+    range.setStart(el.firstChild, 0);
+  } else {
+    range.setStart(el, 0);
+  }
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// ---- markdown shortcut handlers --------------------------------
+
+const SPACE_RULES = [
+  { match: '###', tag: 'h3' },
+  { match: '##', tag: 'h2' },
+  { match: '#', tag: 'h1' },
+  { match: '-', tag: 'ul' },
+  { match: '*', tag: 'ul' },
+  { match: '1.', tag: 'ol' },
+  { match: '>', tag: 'blockquote' },
+];
+
+function handleSpaceShortcut(e, root) {
+  if (!root) return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  const block = findBlock(range.startContainer, root);
+  if (!block) return false;
+  // Only transform from a plain paragraph or div — never from inside an
+  // existing heading/list/quote/code block.
+  if (block.tagName !== 'P' && block.tagName !== 'DIV') return false;
+  const before = getTextBeforeCursor(block, range);
+  for (const rule of SPACE_RULES) {
+    if (before === rule.match) {
+      e.preventDefault();
+      transformBlockTo(block, rule.tag);
+      return true;
+    }
+  }
+  return false;
+}
+
+function transformBlockTo(block, tag) {
+  // Strip the leading marker characters from the block; whatever
+  // follows the cursor (typically nothing, since shortcut fires on the
+  // initial space) becomes the new block's content.
+  const tail = block.textContent.replace(/^(#{1,3}|[-*]|1\.|>)\s*/, '');
+  if (tag === 'ul' || tag === 'ol') {
+    const list = document.createElement(tag);
+    const li = document.createElement('li');
+    li.textContent = tail;
+    if (!tail) li.appendChild(document.createElement('br'));
+    list.appendChild(li);
+    block.replaceWith(list);
+    placeCursorAtStart(li);
+  } else {
+    const next = document.createElement(tag);
+    next.textContent = tail;
+    if (!tail) next.appendChild(document.createElement('br'));
+    block.replaceWith(next);
+    placeCursorAtStart(next);
+  }
+}
+
+function handleEnterShortcut(e, root) {
+  if (!root) return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  const block = findBlock(range.startContainer, root);
+  if (!block) return false;
+
+  const text = block.textContent;
+
+  // ``` on its own → start a code block
+  if (block.tagName === 'P' && /^```\w*$/.test(text.trim())) {
+    e.preventDefault();
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.appendChild(document.createElement('br'));
+    pre.appendChild(code);
+    block.replaceWith(pre);
+    placeCursorAtStart(code);
+    return true;
+  }
+
+  // --- on its own → horizontal rule, then a fresh paragraph below
+  if (block.tagName === 'P' && /^-{3,}$/.test(text.trim())) {
+    e.preventDefault();
+    const hr = document.createElement('hr');
+    const p = document.createElement('p');
+    p.appendChild(document.createElement('br'));
+    block.replaceWith(hr);
+    hr.after(p);
+    placeCursorAtStart(p);
+    return true;
+  }
+
+  // Enter at end of an empty heading/quote → demote to paragraph
+  const tag = block.tagName;
+  const isHeading = tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' || tag === 'H5' || tag === 'H6';
+  if ((isHeading || tag === 'BLOCKQUOTE') && text.trim() === '') {
+    e.preventDefault();
+    const p = document.createElement('p');
+    p.appendChild(document.createElement('br'));
+    block.replaceWith(p);
+    placeCursorAtStart(p);
+    return true;
+  }
+
+  // Empty <li> at the end of a list → exit the list
+  if (tag === 'LI' && text === '') {
+    const list = block.parentElement;
+    if (list && (list.tagName === 'UL' || list.tagName === 'OL')) {
+      e.preventDefault();
+      const p = document.createElement('p');
+      p.appendChild(document.createElement('br'));
+      list.after(p);
+      block.remove();
+      if (!list.children.length) list.remove();
+      placeCursorAtStart(p);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ---- tag editor ------------------------------------------------
 
 function TagEditor({ tags, value, onInput, onAdd, onRemove }) {
   return (
@@ -766,7 +727,7 @@ function TagEditor({ tags, value, onInput, onAdd, onRemove }) {
             onRemove(tags[tags.length - 1]);
           }
         }}
-        placeholder={tags.length ? '태그 추가' : '#태그를 입력하고 Enter'}
+        placeholder={tags.length ? '태그 추가' : '#태그'}
         className="min-w-[120px] flex-1 bg-transparent outline-none t-caption"
         style={{ color: 'var(--text-primary)' }}
       />
