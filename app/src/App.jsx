@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { LayoutGrid, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut } from 'lucide-react';
+import { LayoutGrid, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut, Users } from 'lucide-react';
 import BoardTab from './tabs/BoardTab.jsx';
 import NotesTab from './tabs/NotesTab.jsx';
 import FilesTab from './tabs/FilesTab.jsx';
 import VaultTab from './tabs/VaultTab.jsx';
+import TeamTab from './tabs/TeamTab.jsx';
 import SettingsTab from './tabs/SettingsTab.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import { ToastProvider } from './contexts/ToastContext.jsx';
@@ -68,14 +69,20 @@ function AuthGate() {
   );
 }
 
+const BOTTOM_TABS = [
+  { id: 'team', label: '팀', icon: Users, Component: TeamTab },
+  { id: 'settings', label: '설정', icon: Settings, Component: SettingsTab },
+];
+
 function Shell() {
   const { currentUser, logout } = useAuth();
   const [active, setActive] = useState('board');
-  const isSettings = active === 'settings';
-  const current = isSettings
-    ? { id: 'settings', label: '설정', Component: SettingsTab }
+  const isBottom = BOTTOM_TABS.some((t) => t.id === active);
+  const current = isBottom
+    ? BOTTOM_TABS.find((t) => t.id === active)
     : TABS.find((t) => t.id === active);
   const Current = current.Component;
+  const isSettings = active === 'settings';
 
   return (
     <div className="flex h-full">
@@ -112,18 +119,24 @@ function Shell() {
             );
           })}
           <div className="mt-auto flex flex-col gap-0.5 pb-2">
-            <button
-              onClick={() => setActive('settings')}
-              className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
-              style={{
-                background: isSettings ? 'var(--accent-brand-soft)' : 'transparent',
-                color: isSettings ? 'var(--text-brand)' : 'var(--text-secondary)',
-                transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
-              }}
-            >
-              <Settings size={16} strokeWidth={1.75} />
-              설정
-            </button>
+            {BOTTOM_TABS.map(({ id, label, icon: Icon }) => {
+              const on = active === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActive(id)}
+                  className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
+                  style={{
+                    background: on ? 'var(--accent-brand-soft)' : 'transparent',
+                    color: on ? 'var(--text-brand)' : 'var(--text-secondary)',
+                    transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
+                  }}
+                >
+                  <Icon size={16} strokeWidth={1.75} />
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </nav>
         {currentUser && (
@@ -163,7 +176,7 @@ function Shell() {
           }}
         >
           {active !== 'notes' && <div className="t-heading1">{current.label}</div>}
-          {!isSettings && (
+          {!isBottom && (
             <div className="ml-auto flex items-center gap-2">
               <IconButton
                 icon={Search}

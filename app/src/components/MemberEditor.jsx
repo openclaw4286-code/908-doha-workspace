@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import Modal from './Modal.jsx';
+import Button from './Button.jsx';
 import FormField from './FormField.jsx';
 import FormInput from './FormInput.jsx';
+import FormTextarea from './FormTextarea.jsx';
 import ColorPicker from './ColorPicker.jsx';
 import { MEMBER_COLORS } from '../lib/members.js';
 
@@ -10,6 +12,9 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
   const isNew = !member?.id;
   const [name, setName] = useState('');
   const [color, setColor] = useState(MEMBER_COLORS[0]);
+  const [role, setRole] = useState('');
+  const [bio, setBio] = useState('');
+  const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
@@ -17,6 +22,9 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
     if (!open) return;
     setName(member?.name ?? '');
     setColor(member?.color ?? MEMBER_COLORS[0]);
+    setRole(member?.role ?? '');
+    setBio(member?.bio ?? '');
+    setContact(member?.contact ?? '');
     setPassword('');
     setConfirm('');
   }, [open, member]);
@@ -33,6 +41,9 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
       id: member?.id,
       name: name.trim(),
       color,
+      role: role.trim(),
+      bio: bio.trim(),
+      contact: contact.trim(),
       password: password || undefined,
     });
   };
@@ -45,33 +56,23 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
       footer={
         <>
           {!isNew && !isSelf && (
-            <button
+            <Button
+              variant="ghost"
+              size="md"
+              icon={Trash2}
               onClick={() => onDelete?.(member)}
-              className="mr-auto flex h-9 items-center gap-1.5 rounded-md px-3 t-label"
-              style={{ color: 'var(--state-negative)' }}
+              style={{ color: 'var(--state-negative)', border: 'none' }}
+              className="mr-auto"
             >
-              <Trash2 size={15} strokeWidth={1.75} />
               삭제
-            </button>
+            </Button>
           )}
-          <button
-            onClick={onClose}
-            className="h-9 rounded-md px-3.5 t-label"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <Button variant="secondary" size="md" onClick={onClose}>
             취소
-          </button>
-          <button
-            onClick={save}
-            disabled={!canSave}
-            className="h-9 rounded-md px-3.5 t-label"
-            style={{
-              background: canSave ? 'var(--accent-brand)' : 'var(--surface-sunken)',
-              color: canSave ? 'var(--text-inverted)' : 'var(--text-tertiary)',
-            }}
-          >
+          </Button>
+          <Button variant="primary" size="md" disabled={!canSave} onClick={save}>
             저장
-          </button>
+          </Button>
         </>
       }
     >
@@ -83,6 +84,35 @@ export default function MemberEditor({ open, member, onSave, onDelete, onClose, 
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 20))}
             autoFocus
+          />
+        </FormField>
+
+        <FormField label="역할 / 직무">
+          <FormInput
+            name="member-role"
+            autoComplete="off"
+            value={role}
+            onChange={(e) => setRole(e.target.value.slice(0, 40))}
+            placeholder="예: 디자이너, 백엔드"
+          />
+        </FormField>
+
+        <FormField label="연락처">
+          <FormInput
+            name="member-contact"
+            autoComplete="off"
+            value={contact}
+            onChange={(e) => setContact(e.target.value.slice(0, 80))}
+            placeholder="이메일, 전화 등"
+          />
+        </FormField>
+
+        <FormField label="소개" hint={`${bio.length}/200`}>
+          <FormTextarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value.slice(0, 200))}
+            placeholder="짧게 자기 소개"
+            rows={3}
           />
         </FormField>
 

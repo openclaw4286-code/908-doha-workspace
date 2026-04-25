@@ -19,6 +19,9 @@ function rowToMember(r) {
     id: r.id,
     name: r.name,
     color: r.color,
+    role: r.role ?? '',
+    bio: r.bio ?? '',
+    contact: r.contact ?? '',
     hasPassword: !!(r.pw_salt && r.pw_hash),
     pw_salt: r.pw_salt ?? null,
     pw_hash: r.pw_hash ?? null,
@@ -57,10 +60,13 @@ export async function createMember({ name, color, password }) {
   return rowToMember(data);
 }
 
-export async function updateMember(id, { name, color, password }) {
+export async function updateMember(id, { name, color, password, role, bio, contact }) {
   const patch = {};
   if (name !== undefined) patch.name = name.trim();
   if (color !== undefined) patch.color = color;
+  if (role !== undefined) patch.role = role;
+  if (bio !== undefined) patch.bio = bio;
+  if (contact !== undefined) patch.contact = contact;
   if (password) Object.assign(patch, await hashPassword(password));
   const { data, error } = await supabase
     .from('members')
