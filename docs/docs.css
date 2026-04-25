@@ -136,7 +136,7 @@ body {
 
 /* Code block */
 pre.code {
-  background: #0B0B0A; color: #F2F2F2;
+  background: #0B0B0A; color: #F2F0EB;
   border-radius: 12px;
   padding: 16px 20px;
   font-family: var(--font-mono); font-size: 12.5px; line-height: 20px;
