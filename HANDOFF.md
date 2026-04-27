@@ -73,6 +73,26 @@ import '908-doha-design-system/tokens-only';
 git submodule add https://github.com/YOUR_ORG/908-doha-design-system.git design-system
 ```
 
+토큰뿐 아니라 `app/src/components/`의 React 컴포넌트(Button, IconButton, Modal,
+Form\* 등)를 그대로 import해서 쓰고 싶다면 submodule 방식이 가장 가볍습니다.
+새 프로젝트 셋업을 자동화한 스타터 스크립트를 제공합니다:
+
+```bash
+# 디자인 시스템 repo 안에서 실행
+scripts/init-app-with-ds.sh ../my-new-app
+# 또는 fork한 repo URL을 직접 지정
+scripts/init-app-with-ds.sh ../my-new-app https://github.com/me/908-doha-workspace.git
+```
+
+생성되는 것: Vite + React + Tailwind 설정, design-system submodule,
+`@ds/components/*` import alias, 컴포넌트 사용 예시가 든 `App.jsx`.
+
+```bash
+cd ../my-new-app && npm install && npm run dev
+```
+
+업데이트는 `git -C design-system pull && git add design-system && git commit`.
+
 ---
 
 ## 2. 디자인 토큰
