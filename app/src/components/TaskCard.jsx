@@ -1,6 +1,7 @@
 import { Calendar, User } from 'lucide-react';
 import { PRIORITY_LABELS } from '../lib/tasks.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import MemberAvatar from './MemberAvatar.jsx';
 
 const PRIORITY_EDGE = {
@@ -14,6 +15,7 @@ const AVATAR_STACK_LIMIT = 3;
 export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, dragging }) {
   const due = dueMeta(task.dueDate, task.status);
   const { members } = useAuth();
+  const { canDragTasks } = useViewport();
   const assigneeMembers = (task.assignees ?? [])
     .map((id) => members.find((m) => m.id === id))
     .filter(Boolean);
@@ -22,12 +24,16 @@ export default function TaskCard({ task, onOpen, onDragStart, onDragEnd, draggin
 
   return (
     <article
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', task.id);
-        e.dataTransfer.effectAllowed = 'move';
-        onDragStart?.(task.id);
-      }}
+      draggable={canDragTasks}
+      onDragStart={
+        canDragTasks
+          ? (e) => {
+              e.dataTransfer.setData('text/plain', task.id);
+              e.dataTransfer.effectAllowed = 'move';
+              onDragStart?.(task.id);
+            }
+          : undefined
+      }
       onDragEnd={() => onDragEnd?.()}
       onClick={() => onOpen?.(task)}
       className="group cursor-pointer select-none rounded-lg border p-3 text-left"

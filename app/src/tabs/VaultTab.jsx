@@ -5,13 +5,17 @@ import SearchField from '../components/SearchField.jsx';
 import VaultUnlock from '../components/VaultUnlock.jsx';
 import VaultEntry from '../components/VaultEntry.jsx';
 import VaultEntryEditor from '../components/VaultEntryEditor.jsx';
+import Skeleton from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useViewport } from '../contexts/ViewportContext.jsx';
 import { emptyEntry, fetchVaultRow, initVault, saveEntries, unlockVault } from '../lib/vault.js';
 
 export default function VaultTab() {
   const { currentUser } = useAuth();
   const toast = useToast();
+  const { canMutateVault } = useViewport();
+  const readOnly = !canMutateVault;
 
   const [status, setStatus] = useState('checking'); // checking | uninitialized | locked | unlocked
   const [master, setMaster] = useState('');
@@ -144,11 +148,46 @@ export default function VaultTab() {
 
   if (status === 'checking') {
     return (
+      <div className="mx-auto max-w-3xl px-5 py-6">
+        <div className="mb-5 flex items-center gap-3">
+          <Skeleton width={120} height={22} />
+          <Skeleton width={32} height={12} />
+        </div>
+        <div className="mb-4">
+          <Skeleton width="100%" height={44} rounded={14} />
+        </div>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <article
+              key={i}
+              className="flex items-center gap-3 rounded-xl border p-3"
+              style={{
+                background: 'var(--surface)',
+                borderColor: 'var(--border-subtle)',
+              }}
+            >
+              <Skeleton width={40} height={40} rounded={12} />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton width="55%" height={14} />
+                <Skeleton width="35%" height={11} />
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'uninitialized' && readOnly) {
+    return (
       <div
-        className="flex min-h-full items-center justify-center"
-        style={{ color: 'var(--text-tertiary)' }}
+        className="mx-auto mt-12 max-w-sm rounded-xl border border-dashed p-8 text-center"
+        style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
       >
-        <span className="t-body2">확인 중…</span>
+        <div className="t-heading2" style={{ color: 'var(--text-primary)' }}>
+          아직 보관함이 만들어지지 않았어요
+        </div>
+        <p className="t-body2 mt-1.5">데스크톱에서 마스터 비밀번호를 먼저 설정해주세요.</p>
       </div>
     );
   }
@@ -179,14 +218,16 @@ export default function VaultTab() {
           >
             잠그기
           </Button>
-          <Button
-            variant="primary"
-            size="md"
-            icon={Plus}
-            onClick={() => setEditing(emptyEntry())}
-          >
-            새 항목
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="primary"
+              size="md"
+              icon={Plus}
+              onClick={() => setEditing(emptyEntry())}
+            >
+              새 항목
+            </Button>
+          )}
         </div>
       </div>
 
@@ -231,6 +272,7 @@ export default function VaultTab() {
         onSave={save}
         onDelete={remove}
         onClose={() => setEditing(null)}
+        readOnly={readOnly}
       />
     </div>
   );

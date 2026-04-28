@@ -9,7 +9,7 @@ import FormTextarea from './FormTextarea.jsx';
 import FormPasswordInput from './FormPasswordInput.jsx';
 import { generatePassword } from '../lib/vault.js';
 
-export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClose }) {
+export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClose, readOnly = false }) {
   const [draft, setDraft] = useState(entry);
 
   useEffect(() => {
@@ -36,28 +36,34 @@ export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClos
     <Modal
       open={open}
       onClose={onClose}
-      title={isNew ? '새 자격증명' : '자격증명 편집'}
+      title={readOnly ? '자격증명 보기' : isNew ? '새 자격증명' : '자격증명 편집'}
       footer={
-        <>
-          {!isNew && (
-            <Button
-              variant="ghost"
-              size="md"
-              icon={Trash2}
-              onClick={() => onDelete?.(draft)}
-              style={{ color: 'var(--state-negative)', border: 'none' }}
-              className="mr-auto"
-            >
-              삭제
-            </Button>
-          )}
+        readOnly ? (
           <Button variant="secondary" size="md" onClick={onClose}>
-            취소
+            닫기
           </Button>
-          <Button variant="primary" size="md" disabled={!canSave} onClick={save}>
-            저장
-          </Button>
-        </>
+        ) : (
+          <>
+            {!isNew && (
+              <Button
+                variant="ghost"
+                size="md"
+                icon={Trash2}
+                onClick={() => onDelete?.(draft)}
+                style={{ color: 'var(--state-negative)', border: 'none' }}
+                className="mr-auto"
+              >
+                삭제
+              </Button>
+            )}
+            <Button variant="secondary" size="md" onClick={onClose}>
+              취소
+            </Button>
+            <Button variant="primary" size="md" disabled={!canSave} onClick={save}>
+              저장
+            </Button>
+          </>
+        )
       }
     >
       <div className="flex flex-col gap-4">
@@ -66,7 +72,8 @@ export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClos
             value={draft.title}
             onChange={(e) => set({ title: e.target.value.slice(0, 80) })}
             placeholder="예: Supabase · admin"
-            autoFocus
+            autoFocus={!readOnly}
+            readOnly={readOnly}
           />
         </FormField>
 
@@ -76,6 +83,7 @@ export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClos
             onChange={(e) => set({ username: e.target.value })}
             placeholder=""
             autoComplete="off"
+            readOnly={readOnly}
           />
         </FormField>
 
@@ -83,14 +91,17 @@ export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClos
           <FormPasswordInput
             value={draft.password}
             onChange={(e) => set({ password: e.target.value })}
+            readOnly={readOnly}
             trailing={
-              <IconButton
-                icon={Dices}
-                size="sm"
-                variant="clear"
-                ariaLabel="비밀번호 생성"
-                onClick={() => set({ password: generatePassword(20) })}
-              />
+              !readOnly && (
+                <IconButton
+                  icon={Dices}
+                  size="sm"
+                  variant="clear"
+                  ariaLabel="비밀번호 생성"
+                  onClick={() => set({ password: generatePassword(20) })}
+                />
+              )
             }
           />
         </FormField>
@@ -101,6 +112,7 @@ export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClos
             onChange={(e) => set({ url: e.target.value })}
             placeholder="https://"
             autoComplete="off"
+            readOnly={readOnly}
           />
         </FormField>
 
@@ -110,6 +122,7 @@ export default function VaultEntryEditor({ open, entry, onSave, onDelete, onClos
             onChange={(e) => set({ notes: e.target.value })}
             placeholder="선택"
             rows={4}
+            readOnly={readOnly}
           />
         </FormField>
       </div>

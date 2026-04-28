@@ -1,19 +1,22 @@
-import { useState } from 'react';
-import { LayoutGrid, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LayoutGrid, Menu, NotebookPen, Paperclip, Lock, Plus, Search, Settings, LogOut, Users } from 'lucide-react';
 import BoardTab from './tabs/BoardTab.jsx';
 import NotesTab from './tabs/NotesTab.jsx';
 import FilesTab from './tabs/FilesTab.jsx';
 import VaultTab from './tabs/VaultTab.jsx';
+import TeamTab from './tabs/TeamTab.jsx';
 import SettingsTab from './tabs/SettingsTab.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import { ToastProvider } from './contexts/ToastContext.jsx';
 import { NotesProvider } from './contexts/NotesContext.jsx';
+import { ViewportProvider, useViewport } from './contexts/ViewportContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import FirstRunSetup from './components/FirstRunSetup.jsx';
 import MemberAvatar from './components/MemberAvatar.jsx';
 import FolderSidebar from './components/FolderSidebar.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
+import Skeleton from './components/Skeleton.jsx';
 
 const TABS = [
   { id: 'board', label: 'Board', icon: LayoutGrid, Component: BoardTab },
@@ -24,11 +27,13 @@ const TABS = [
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <AuthGate />
-      </AuthProvider>
-    </ToastProvider>
+    <ViewportProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
+      </ToastProvider>
+    </ViewportProvider>
   );
 }
 
@@ -36,14 +41,7 @@ function AuthGate() {
   const { currentUser, members, loading, error } = useAuth();
 
   if (loading) {
-    return (
-      <div
-        className="flex min-h-full items-center justify-center"
-        style={{ color: 'var(--text-tertiary)' }}
-      >
-        <span className="t-body2">불러오는 중…</span>
-      </div>
-    );
+    return <BootSkeleton />;
   }
 
   if (error) {
@@ -68,20 +66,54 @@ function AuthGate() {
   );
 }
 
+const BOTTOM_TABS = [
+  { id: 'team', label: '팀', icon: Users, Component: TeamTab },
+  { id: 'settings', label: '설정', icon: Settings, Component: SettingsTab },
+];
+
 function Shell() {
   const { currentUser, logout } = useAuth();
+  const { isMobile, canMutateTasks, canMutateNotes } = useViewport();
   const [active, setActive] = useState('board');
-  const isSettings = active === 'settings';
-  const current = isSettings
-    ? { id: 'settings', label: '설정', Component: SettingsTab }
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const isBottom = BOTTOM_TABS.some((t) => t.id === active);
+  const current = isBottom
+    ? BOTTOM_TABS.find((t) => t.id === active)
     : TABS.find((t) => t.id === active);
   const Current = current.Component;
+  const isSettings = active === 'settings';
+
+  // close the drawer when the viewport grows out of mobile
+  useEffect(() => {
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
+
+  // close drawer after picking a tab on mobile
+  const pickTab = (id) => {
+    setActive(id);
+    if (isMobile) setDrawerOpen(false);
+  };
 
   return (
     <div className="flex h-full">
+      {isMobile && drawerOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ background: 'var(--overlay-dim)' }}
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
       <aside
-        className="flex w-56 shrink-0 flex-col border-r"
-        style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-layered)' }}
+        className={`flex w-56 shrink-0 flex-col border-r ${
+          isMobile ? 'fixed inset-y-0 left-0 z-50' : ''
+        }`}
+        style={{
+          borderColor: 'var(--border-subtle)',
+          background: 'var(--surface-layered)',
+          transform: isMobile && !drawerOpen ? 'translateX(-100%)' : 'translateX(0)',
+          transition: isMobile ? 'transform 220ms var(--ease-emphasis)' : 'none',
+        }}
       >
         <div
           className="flex h-14 items-center px-5 t-heading1"
@@ -98,7 +130,7 @@ function Shell() {
             return (
               <button
                 key={id}
-                onClick={() => setActive(id)}
+                onClick={() => pickTab(id)}
                 className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
                 style={{
                   background: on ? 'var(--accent-brand-soft)' : 'transparent',
@@ -112,18 +144,24 @@ function Shell() {
             );
           })}
           <div className="mt-auto flex flex-col gap-0.5 pb-2">
-            <button
-              onClick={() => setActive('settings')}
-              className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
-              style={{
-                background: isSettings ? 'var(--accent-brand-soft)' : 'transparent',
-                color: isSettings ? 'var(--text-brand)' : 'var(--text-secondary)',
-                transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
-              }}
-            >
-              <Settings size={16} strokeWidth={1.75} />
-              설정
-            </button>
+            {BOTTOM_TABS.map(({ id, label, icon: Icon }) => {
+              const on = active === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => pickTab(id)}
+                  className="flex h-9 items-center gap-2.5 rounded-md px-3 t-label"
+                  style={{
+                    background: on ? 'var(--accent-brand-soft)' : 'transparent',
+                    color: on ? 'var(--text-brand)' : 'var(--text-secondary)',
+                    transition: 'background 160ms var(--ease-soft), color 160ms var(--ease-soft)',
+                  }}
+                >
+                  <Icon size={16} strokeWidth={1.75} />
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </nav>
         {currentUser && (
@@ -150,7 +188,7 @@ function Shell() {
         )}
       </aside>
 
-      {active === 'notes' && <FolderSidebar />}
+      {active === 'notes' && !isMobile && <FolderSidebar />}
 
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         <header
@@ -162,8 +200,17 @@ function Shell() {
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
+          {isMobile && (
+            <IconButton
+              icon={Menu}
+              size="md"
+              variant="clear"
+              ariaLabel="메뉴"
+              onClick={() => setDrawerOpen(true)}
+            />
+          )}
           {active !== 'notes' && <div className="t-heading1">{current.label}</div>}
-          {!isSettings && (
+          {!isBottom && (
             <div className="ml-auto flex items-center gap-2">
               <IconButton
                 icon={Search}
@@ -171,7 +218,8 @@ function Shell() {
                 variant="clear"
                 ariaLabel="Search"
               />
-              {(active === 'board' || active === 'notes') && (
+              {((active === 'board' && canMutateTasks) ||
+                (active === 'notes' && canMutateNotes)) && (
                 <Button
                   variant="primary"
                   size="md"
@@ -190,6 +238,58 @@ function Shell() {
         </header>
         <div className="flex-1">
           <Current />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function BootSkeleton() {
+  return (
+    <div className="flex h-full">
+      <aside
+        className="hidden w-56 shrink-0 flex-col gap-2 border-r p-3 md:flex"
+        style={{
+          borderColor: 'var(--border-subtle)',
+          background: 'var(--surface-layered)',
+        }}
+      >
+        <div className="px-2 pb-3 pt-1">
+          <Skeleton width={120} height={18} />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} width="100%" height={32} rounded={8} />
+        ))}
+      </aside>
+      <main className="flex flex-1 flex-col">
+        <header
+          className="flex h-14 items-center gap-3 px-5"
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
+        >
+          <Skeleton width={88} height={20} />
+          <div className="ml-auto flex items-center gap-2">
+            <Skeleton width={36} height={36} rounded={10} />
+            <Skeleton width={72} height={36} rounded={10} />
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 py-6">
+          <Skeleton width={160} height={22} />
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <article
+                key={i}
+                className="rounded-xl border p-4"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--border-subtle)',
+                }}
+              >
+                <Skeleton width="70%" height={14} />
+                <Skeleton width="100%" height={12} style={{ marginTop: 10 }} />
+                <Skeleton width="55%" height={12} style={{ marginTop: 6 }} />
+              </article>
+            ))}
+          </div>
         </div>
       </main>
     </div>

@@ -1,55 +1,20 @@
-// Note CRUD backed by Supabase. Blocks are stored as a jsonb array
-// of `{id, type, text, checked?}` records; the UI treats one block as
-// one rendered row so edits stay local without re-splitting strings.
-//
-// Block types ("Notion-style"):
-//   text, h1, h2, h3, bullet, numbered, todo, quote, divider, callout
-// Legacy values are normalized on read:
-//   heading -> h2, check -> todo
+// Note CRUD backed by Supabase. The note body is sanitized HTML
+// rendered inside a contenteditable surface (single WYSIWYG view —
+// editing IS the preview). To stay compatible with the existing
+// `blocks` jsonb column the body is persisted as a single record
+// `[{id, type:'html', text:<html>}]`. Older formats (`md`, legacy
+// typed blocks) are migrated to HTML on read.
 
 import { supabase } from './supabase.js';
 import { uid } from './id.js';
-
-export const BLOCK_TYPES = [
-  'text',
-  'h1',
-  'h2',
-  'h3',
-  'bullet',
-  'numbered',
-  'todo',
-  'quote',
-  'divider',
-  'callout',
-];
-
-const LEGACY_MAP = { heading: 'h2', check: 'todo' };
-
-export function normalizeType(type) {
-  if (!type) return 'text';
-  if (LEGACY_MAP[type]) return LEGACY_MAP[type];
-  return BLOCK_TYPES.includes(type) ? type : 'text';
-}
-
-export function emptyBlock(type = 'text') {
-  const t = normalizeType(type);
-  const base = { id: uid(), type: t, text: '' };
-  if (t === 'todo') return { ...base, checked: false };
-  return base;
-}
-
-function normalizeBlock(b) {
-  const type = normalizeType(b?.type);
-  const out = { id: b?.id ?? uid(), type, text: b?.text ?? '' };
-  if (type === 'todo') out.checked = !!b?.checked;
-  return out;
-}
+import { escapeHtml, htmlToText } from './htmlSanitize.js';
+import { markdownToHtml } from './markdown.js';
 
 export function emptyNote(overrides = {}) {
   return {
     id: uid(),
     title: '',
-    blocks: [emptyBlock('text')],
+    body: '',
     tags: [],
     pinned: false,
     folderId: null,
@@ -58,11 +23,46 @@ export function emptyNote(overrides = {}) {
   };
 }
 
+function legacyBlockToHtml(b) {
+  const text = escapeHtml(b.text ?? '');
+  switch (b.type) {
+    case 'h1': return `<h1>${text}</h1>`;
+    case 'h2': return `<h2>${text}</h2>`;
+    case 'h3': return `<h3>${text}</h3>`;
+    case 'heading': return `<h2>${text}</h2>`;
+    case 'bullet': return `<ul><li>${text}</li></ul>`;
+    case 'numbered': return `<ol><li>${text}</li></ol>`;
+    case 'check': return `<p>${b.checked ? '☑' : '☐'} ${text}</p>`;
+    case 'quote': return `<blockquote>${text}</blockquote>`;
+    case 'divider': return '<hr>';
+    case 'text':
+    default:
+      return text ? `<p>${text}</p>` : '';
+  }
+}
+
+function blocksToBody(blocks) {
+  if (!Array.isArray(blocks) || blocks.length === 0) return '';
+  if (blocks.length === 1) {
+    const b = blocks[0];
+    if (b?.type === 'html') return b.text ?? '';
+    if (b?.type === 'md') return markdownToHtml(b.text ?? '');
+  }
+  return blocks
+    .filter((b) => b && typeof b === 'object')
+    .map(legacyBlockToHtml)
+    .join('');
+}
+
+function bodyToBlocks(body) {
+  return [{ id: uid(), type: 'html', text: body ?? '' }];
+}
+
 function rowToNote(r) {
   return {
     id: r.id,
     title: r.title ?? '',
-    blocks: Array.isArray(r.blocks) ? r.blocks.map(normalizeBlock) : [],
+    body: blocksToBody(Array.isArray(r.blocks) ? r.blocks : []),
     tags: Array.isArray(r.tags) ? r.tags : [],
     pinned: !!r.pinned,
     folderId: r.folder_id ?? null,
@@ -77,14 +77,7 @@ function noteToRow(n) {
   return {
     id: n.id,
     title: n.title ?? '',
-    blocks: (n.blocks ?? [])
-      .map(normalizeBlock)
-      .filter(
-        (b) =>
-          b.type === 'todo' ||
-          b.type === 'divider' ||
-          (b.text ?? '').trim().length > 0,
-      ),
+    blocks: bodyToBlocks(n.body ?? ''),
     tags: n.tags ?? [],
     pinned: !!n.pinned,
     folder_id: n.folderId ?? null,
@@ -119,22 +112,16 @@ export async function removeNote(id) {
 }
 
 export function snippet(note, max = 140) {
-  const parts = [];
-  for (const b of note.blocks ?? []) {
-    const type = normalizeType(b.type);
-    if (type === 'divider') {
-      parts.push('—');
-      continue;
-    }
-    const text = (b.text ?? '').trim();
-    if (!text) continue;
-    if (type === 'todo') parts.push(`${b.checked ? '☑' : '☐'} ${text}`);
-    else if (type === 'bullet') parts.push(`• ${text}`);
-    else if (type === 'numbered') parts.push(`1. ${text}`);
-    else if (type === 'quote') parts.push(`" ${text} "`);
-    else parts.push(text);
-    if (parts.join(' · ').length > max) break;
-  }
-  const joined = parts.join(' · ');
-  return joined.length > max ? joined.slice(0, max - 1) + '…' : joined;
+  const text = htmlToText(note.body ?? '');
+  if (!text) return '';
+  return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+export function noteHasContent(n) {
+  if ((n.title ?? '').trim()) return true;
+  return htmlToText(n.body ?? '').length > 0;
+}
+
+export function noteBodyText(n) {
+  return htmlToText(n.body ?? '');
 }

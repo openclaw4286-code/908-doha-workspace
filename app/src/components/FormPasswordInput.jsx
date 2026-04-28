@@ -11,6 +11,7 @@ export default function FormPasswordInput({
   autoFocus,
   name,
   autoComplete,
+  readOnly,
   trailing,
 }) {
   const [focused, setFocused] = useState(false);
@@ -38,6 +39,7 @@ export default function FormPasswordInput({
         name={name}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
+        readOnly={readOnly}
         className="min-w-0 flex-1 bg-transparent outline-none"
         style={{
           fontSize: 15,

@@ -1,11 +1,13 @@
 // File CRUD backed by Supabase. Storage is base64 in the `ref`
-// column for v1 (spec ≤5MB); Drive/S3 variants are listed in the
-// storage enum but not wired yet.
+// column; Drive/S3 variants are listed in the storage enum but not
+// wired yet. Cap is 25MB per file — base64 inflates ~33% so a 25MB
+// upload is ~33MB on the wire and in the row, which Postgres handles
+// without TOAST issues.
 
 import { supabase } from './supabase.js';
 import { uid } from './id.js';
 
-export const MAX_SIZE = 5 * 1024 * 1024;
+export const MAX_SIZE = 25 * 1024 * 1024;
 
 function rowToFile(r) {
   return {
@@ -85,7 +87,24 @@ function readAsBase64(file) {
       const comma = s.indexOf(',');
       resolve(comma >= 0 ? s.slice(comma + 1) : s);
     };
-    r.onerror = () => reject(r.error ?? new Error('읽기 실패'));
+    r.onerror = () => reject(translateReadError(r.error));
     r.readAsDataURL(file);
   });
+}
+
+// FileReader throws a DOMException with terse English when the file
+// can't be read — turn the common ones into friendlier Korean.
+function translateReadError(err) {
+  const name = err?.name ?? '';
+  if (name === 'NotFoundError') {
+    return new Error(
+      '파일을 찾을 수 없어요. 클라우드 전용 파일이거나 위치가 변경되었을 수 있어요.',
+    );
+  }
+  if (name === 'NotReadableError' || name === 'SecurityError') {
+    return new Error(
+      '파일을 읽을 수 없어요. 다른 앱이 잠그고 있거나 권한이 없을 수 있어요.',
+    );
+  }
+  return new Error('파일을 읽는 중 문제가 발생했어요');
 }

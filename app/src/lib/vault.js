@@ -56,6 +56,20 @@ export async function saveEntries(master, entries, updaterId = null) {
   return data;
 }
 
+// Re-encrypt the vault under a new master password. Verifies the
+// current master first so a wrong entry can't wipe the blob.
+export async function changeMasterPassword(currentMaster, newMaster, updaterId = null) {
+  const row = await fetchVaultRow();
+  if (!row) throw new Error('아직 보관함이 만들어지지 않았어요');
+  let entries;
+  try {
+    entries = await decryptVault(currentMaster, row);
+  } catch {
+    throw new Error('현재 비밀번호가 일치하지 않아요');
+  }
+  await saveEntries(newMaster, Array.isArray(entries) ? entries : [], updaterId);
+}
+
 export function generatePassword(length = 20) {
   const charset =
     'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*+-_';
